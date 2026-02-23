@@ -58,7 +58,7 @@ export default function AudioPlayer({ url }: AudioPlayerProps) {
         {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
       </button>
       
-      {/* Basic Progress Bar / Waveform Placeholder */}
+     
       <div className="flex-1 h-2 bg-black rounded-full overflow-hidden tactile-inset">
         <div 
           className="h-full bg-accent-amber transition-all duration-100 ease-linear"

@@ -14,7 +14,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "OBI | Sonic Search Engine",
-  description: "The first Sonic Search Engine. Turn hours of crate digging into seconds of discovery.",
+  description:
+    "The first Sonic Search Engine. Turn hours of crate digging into seconds of discovery.",
+  icons: {
+    icon: "/obilogo.svg",
+  },
 };
 
 export default function RootLayout({
@@ -24,7 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground selection:bg-accent-gold selection:text-black`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground selection:bg-accent-gold selection:text-black`}
+      >
         <div className="relative z-10 min-h-screen tactile-container">
           {children}
         </div>
