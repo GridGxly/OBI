@@ -49,25 +49,31 @@ export default function Home() {
       if (query) formData.append("query", query);
       if (file) formData.append("audio", file);
 
+ 
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      setResults([
+        { id: "1", title: "Obscure Italian Flute Break '74", score: 98, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+        { id: "2", title: "Dusty Jazz Drum Loop (110bpm)", score: 85, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+        { id: "3", title: "Motown Bass Groove - Isolated", score: 81, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+        { id: "4", title: "Vinyl Crackle and Synth Wash", score: 76, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+        { id: "5", title: "Lo-Fi Hip Hop Kick & Snare", score: 72, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
+      ]);
+
+      // note: once the backend is ready just replace the above with the actual fetch:
+      /*
       const response = await fetch("/search", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        throw new Error("Endpoint failed or does not exist yet.");
-      }
-
+      if (!response.ok) throw new Error("Endpoint failed");
       const data = await response.json();
       setResults(data.results || []);
+      */
 
     } catch (err) {
       console.warn("API Error:", err);
-      setError("Using mock data because POST /search failed (endpoint may not exist yet).");
-      setResults([
-        { id: "1", title: "Obscure Italian Flute Break '74", score: 98, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-        { id: "2", title: "Dusty Jazz Drum Loop", score: 85, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-      ]);
+      setError("An error occurred while fetching results.");
     } finally {
       setIsSearching(false);
     }
