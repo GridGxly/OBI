@@ -119,6 +119,17 @@ export default function Home() {
         { id: "4", title: "Vinyl Crackle and Synth Wash", score: 76, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
         { id: "5", title: "Lo-Fi Hip Hop Kick & Snare", score: 72, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
       ]);
+
+      // note: once the backend is ready just replace the above with the actual fetch:
+      /*
+      const response = await fetch("/search", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Endpoint failed");
+      const data = await response.json();
+      setResults(data.results || []);
+      */
     } catch (err) {
       console.warn("API Error:", err);
       setError("An error occurred while fetching results.");
