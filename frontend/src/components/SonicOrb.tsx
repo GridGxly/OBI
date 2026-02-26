@@ -13,44 +13,47 @@ export default function SonicOrb({ intensity }: SonicOrbProps) {
   const config = {
     idle: {
       scale: 1,
-      opacity: 0.08,
-      borderColor: "rgba(212,139,34,0.15)",
-      glowOpacity: 0.05,
+      opacity: 0.12,
+      borderColor: "rgba(212,139,34,0.18)",
+      glowOpacity: 0.06,
+      speed: 6,
     },
     focused: {
-      scale: 1.1,
-      opacity: 0.2,
-      borderColor: "rgba(212,139,34,0.35)",
-      glowOpacity: 0.15,
+      scale: 1.12,
+      opacity: 0.25,
+      borderColor: "rgba(212,139,34,0.4)",
+      glowOpacity: 0.18,
+      speed: 3,
     },
     searching: {
-      scale: 1.25,
-      opacity: 0.3,
-      borderColor: "rgba(229,169,61,0.5)",
-      glowOpacity: 0.25,
+      scale: 1.3,
+      opacity: 0.35,
+      borderColor: "rgba(229,169,61,0.55)",
+      glowOpacity: 0.3,
+      speed: 1.5,
     },
   };
 
   const c = config[intensity];
 
   const rings = [
-    { size: 320, delay: 0, duration: 3 },
-    { size: 480, delay: 1, duration: 3.5 },
-    { size: 640, delay: 2, duration: 4 },
+    { size: 300, delayFrac: 0 },
+    { size: 440, delayFrac: 0.33 },
+    { size: 580, delayFrac: 0.66 },
   ];
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ clipPath: "circle(50%)" }}>
       <motion.div
-        className="absolute w-[200px] h-[200px] rounded-full"
+        className="absolute w-[180px] h-[180px] rounded-full"
         style={{
           background: `radial-gradient(circle, rgba(212,139,34,${c.glowOpacity}) 0%, transparent 70%)`,
         }}
         animate={{
-          scale: [c.scale, c.scale * 1.15, c.scale],
-          opacity: [c.opacity, c.opacity * 1.4, c.opacity],
+          scale: [c.scale, c.scale * 1.2, c.scale],
+          opacity: [c.opacity, c.opacity * 1.5, c.opacity],
         }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: c.speed * 0.8, repeat: Infinity, ease: "easeInOut" }}
       />
 
       {rings.map((ring, i) => (
@@ -68,8 +71,8 @@ export default function SonicOrb({ intensity }: SonicOrbProps) {
             opacity: [c.opacity * 0.3, c.opacity, c.opacity * 0.3],
           }}
           transition={{
-            duration: ring.duration,
-            delay: ring.delay,
+            duration: c.speed,
+            delay: ring.delayFrac * c.speed,
             repeat: Infinity,
             ease: "easeInOut",
           }}
@@ -79,13 +82,13 @@ export default function SonicOrb({ intensity }: SonicOrbProps) {
       <motion.div
         className="absolute w-[700px] h-[700px] rounded-full"
         style={{
-          background: `radial-gradient(circle, rgba(212,139,34,${c.glowOpacity * 0.3}) 0%, transparent 60%)`,
+          background: `radial-gradient(circle, rgba(212,139,34,${c.glowOpacity * 0.25}) 0%, transparent 60%)`,
         }}
         animate={{
-          scale: [1, 1.05, 1],
-          opacity: [0.5, 1, 0.5],
+          scale: [1, 1.04, 1],
+          opacity: [0.4, 0.8, 0.4],
         }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: c.speed * 1.2, repeat: Infinity, ease: "easeInOut" }}
       />
     </div>
   );
