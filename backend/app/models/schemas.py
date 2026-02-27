@@ -7,7 +7,9 @@ class NearestNeighbor(baseModel):
 
 class EmbedResponse:
   embedding_id: str
-  nearest_neighbors: 
+  nearest_neighbors: List[NearestNeighbor]
+
+
 
 
 
