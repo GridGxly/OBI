@@ -5,6 +5,7 @@ import { Search, UploadCloud, Mic, AlertCircle, Play, Square, Bookmark, Link2, D
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
 import SonicOrb from "@/components/SonicOrb";
+import VibeKnob from "@/components/VibeKnob";
 
 type SearchResult = {
   id: string;
@@ -27,6 +28,8 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [dust, setDust] = useState(50);
+  const [timbre, setTimbre] = useState(50);
 
   useEffect(() => {
     if (file) {
@@ -171,6 +174,8 @@ export default function Home() {
 
   const activeMode: "text" | "upload" | "mic" =
     isRecording ? "mic" : file ? "upload" : "text";
+
+
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-start pt-14 pb-24 px-6 md:px-12 relative overflow-hidden max-w-[1400px] mx-auto bg-noise">
@@ -436,7 +441,10 @@ export default function Home() {
             )}
           </AnimatePresence>
         </motion.div>
-
+        <div className="flex gap-8 translate-y-2.5">
+          <VibeKnob label="Dust" value={dust} onChange={setDust} />
+          <VibeKnob label="Timbre" value={timbre} onChange={setTimbre} />
+        </div>
         <motion.div
           className="mt-5 flex flex-col items-center justify-center w-full relative"
           initial={{ opacity: 0, y: 10 }}
