@@ -17,15 +17,16 @@ COLLECTION_NAME = "audio_samples"
 
 
 def evaluate(query_path: str, top_k: int = 5):
-    client = QdrantClient(host="localhost", port=6333)
+    # client = QdrantClient(host="localhost", port=6333)
+    client = QdrantClient(path="qdrant_storage")
 
     query_vector = embed(query_path)
 
-    results = client.search(
+    results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=query_vector.tolist(),
+        query=query_vector.tolist(),
         limit=top_k,
-    )
+    ).points
 
     print(f"\nTop {top_k} matches for: {query_path}\n")
 
