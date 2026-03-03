@@ -94,16 +94,7 @@ export default function Home() {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  const vibeChips = [
-    "dusty drum break",
-    "lo-fi Rhodes",
-    "anime intro synth",
-    "UKG swing",
-    "vinyl crackle",
-    "tape hiss",
-    "soul chop",
-    "808 sub",
-  ];
+
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError("");
@@ -444,35 +435,7 @@ export default function Home() {
           <VibeKnob label="Dust" value={dust} onChange={setDust} />
           <VibeKnob label="Timbre" value={timbre} onChange={setTimbre} />
         </div>
-        <motion.div
-          className="mt-5 flex flex-col items-center justify-center w-full relative"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.45 }}
-        >
-          <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-[0.2em] mb-3">
-            Try a vibe
-          </span>
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl px-4 relative">
-            {vibeChips.map((vibe, i) => (
-              <motion.button
-                key={vibe}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setQuery(vibe);
-                  setIsFocused(true);
-                }}
-                className="px-4 py-2 rounded-full border border-zinc-800 bg-[#151515]/80 backdrop-blur-sm text-xs font-medium text-zinc-400 hover:text-zinc-100 hover:border-accent-amber/30 hover:bg-[#1e1e1e] transition-all duration-200 cursor-pointer hover:scale-[1.04]"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.5 + i * 0.05 }}
-              >
-                {vibe}
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
+
 
         {error && (
           <motion.div
