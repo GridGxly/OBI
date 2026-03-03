@@ -24,7 +24,7 @@ export default function Home() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
   const [isFocused, setIsFocused] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+
   const [isRecording, setIsRecording] = useState(false);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -129,7 +129,6 @@ export default function Home() {
     setError("");
     setResults([]);
     setIsFocused(false);
-    setHasSearched(true);
 
     try {
       const formData = new FormData();
@@ -488,7 +487,37 @@ export default function Home() {
       </div>
 
       <AnimatePresence mode="wait">
-        {results.length > 0 ? (
+        {isSearching ? (
+          <motion.div
+            key="skeleton"
+            className="w-full max-w-2xl flex flex-col gap-4 z-30 relative mt-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-center justify-between uppercase tracking-widest text-[11px] font-mono text-zinc-600 mb-1 border-b border-zinc-800/50 pb-2">
+              <span>Results</span>
+              <span>Match %</span>
+            </div>
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="flex flex-col gap-3 p-4 bg-[#111]/40 rounded-2xl border border-zinc-800/40"
+              >
+                <div className="flex items-center justify-between px-2">
+                  <div className="h-5 w-[60%] rounded-md skeleton-shimmer" />
+                  <div className="h-5 w-12 rounded-md skeleton-shimmer" />
+                </div>
+                <div className="h-3 w-[40%] rounded-md skeleton-shimmer ml-2" />
+                <div className="flex items-center gap-4 w-full p-3 rounded-xl bg-[#1A1A1A]/50 border border-zinc-800/30">
+                  <div className="w-10 h-10 rounded-full skeleton-shimmer shrink-0" />
+                  <div className="flex-1 h-2 rounded-full skeleton-shimmer" />
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        ) : results.length > 0 ? (
           <motion.div
             key="results"
             className="w-full max-w-2xl flex flex-col gap-4 z-30 relative pb-20 mt-12"
@@ -545,35 +574,6 @@ export default function Home() {
                   </button>
                 </div>
               </motion.div>
-            ))}
-          </motion.div>
-        ) : !hasSearched ? (
-          <motion.div
-            key="skeleton"
-            className="w-full max-w-2xl flex flex-col gap-4 mt-12"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            <div className="flex items-center justify-between uppercase tracking-widest text-[11px] font-mono text-zinc-600 mb-1 border-b border-zinc-800/50 pb-2">
-              <span>Results</span>
-              <span>Match %</span>
-            </div>
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="flex flex-col gap-3 p-4 bg-[#111]/40 rounded-2xl border border-zinc-800/40"
-              >
-                <div className="flex items-center justify-between px-2">
-                  <div className="h-5 w-[60%] rounded-md skeleton-shimmer" />
-                  <div className="h-5 w-12 rounded-md skeleton-shimmer" />
-                </div>
-                <div className="h-3 w-[40%] rounded-md skeleton-shimmer ml-2" />
-                <div className="flex items-center gap-4 w-full p-3 rounded-xl bg-[#1A1A1A]/50 border border-zinc-800/30">
-                  <div className="w-10 h-10 rounded-full skeleton-shimmer shrink-0" />
-                  <div className="flex-1 h-2 rounded-full skeleton-shimmer" />
-                </div>
-              </div>
             ))}
           </motion.div>
         ) : null}
