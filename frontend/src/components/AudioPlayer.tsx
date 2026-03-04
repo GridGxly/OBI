@@ -65,14 +65,25 @@ export default function AudioPlayer({ url }: AudioPlayerProps) {
   };
 
   return (
-    <div className="flex items-center gap-4 w-full p-3 rounded-xl bg-[#1A1A1A] border border-zinc-800">
+    <div
+      className="flex items-center gap-4 w-full p-3 rounded-[10px]"
+      style={{
+        background: "rgba(0,0,0,0.3)",
+        border: "1px solid rgba(255,255,255,0.03)",
+      }}
+    >
       <audio ref={audioRef} src={url} className="hidden" />
 
       <button
         onClick={togglePlay}
-        className="w-10 h-10 rounded-full bg-accent-amber/10 text-accent-amber flex shrink-0 items-center justify-center hover:bg-accent-amber hover:text-black transition-colors"
+        className="w-[30px] h-[30px] rounded-full flex shrink-0 items-center justify-center transition-all duration-200"
+        style={{
+          background: isPlaying ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.06)",
+          border: isPlaying ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(255,255,255,0.08)",
+          color: isPlaying ? "var(--accent)" : "rgba(255,255,255,0.8)",
+        }}
       >
-        {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+        {isPlaying ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
       </button>
 
       <svg
@@ -95,7 +106,11 @@ export default function AudioPlayer({ url }: AudioPlayerProps) {
               width={2}
               height={barH}
               rx={1}
-              className={`transition-colors duration-75 ${isFilled ? "fill-accent-amber" : "fill-zinc-700"}`}
+              fill={isFilled
+                ? "rgba(212,175,55,0.85)"
+                : `rgba(255,255,255,${0.06 + h * 0.12})`
+              }
+              style={{ transition: "fill 0.15s" }}
             />
           );
         })}
