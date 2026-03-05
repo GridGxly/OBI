@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -46,7 +47,7 @@ export default function RootLayout({
         <div className="grain-overlay" />
         <div className="ambient-glow" id="ambient-glow" />
         <div className="relative z-10 min-h-screen">
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </div>
       </body>
     </html>

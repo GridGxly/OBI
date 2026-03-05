@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
 import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
+
+import { useAuth } from "@/context/AuthContext";
+import AuthModal from "@/components/AuthModal";
 
 import ParticleCanvas from "@/components/ParticleCanvas";
 import ScanningOverlay from "@/components/ScanningOverlay";
@@ -157,6 +160,12 @@ export default function Home() {
     setResults(pendingResultsRef.current);
   }, []);
 
+  const { user, logout, saveSound } = useAuth();
+  const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+
+  const ghostBtn: CSSProperties = { background: "none", border: "1px solid #2a2a2a", color: "#666", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", cursor: "pointer" };
+  const goldBtn: CSSProperties = { backgroundColor: "#b8a96a", border: "none", color: "#0a0a0a", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", fontWeight: 600, cursor: "pointer" };
+
   return (
     <>
       <ParticleCanvas isScanning={isScanning} />
@@ -176,6 +185,24 @@ export default function Home() {
           transitionDuration: "0.7s, 0.5s",
         }}
       >
+
+        <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem" }}>
+          {user ? (
+            <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+              <a href="/profile" style={{ color: "#b8a96a", fontSize: "0.7rem", letterSpacing: "0.1rem" }}>
+                {user.username.toUpperCase()}
+              </a>
+              <button onClick={logout} style={ghostBtn}>SIGN OUT</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button onClick={() => setAuthModal("login")} style={ghostBtn}>LOG IN</button>
+              <button onClick={() => setAuthModal("signup")} style={goldBtn}>SIGN UP</button>
+            </div>
+          )}
+        </div>
+
+        {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} />}
         <div className="flex flex-col items-center justify-center text-center z-30 relative w-full max-w-3xl">
           <motion.h1
             className="font-display font-bold text-white mb-1"
@@ -570,11 +597,14 @@ export default function Home() {
                   >
                     {[
                       { icon: Bookmark, label: "Save", action: () => {
-                        const saved = JSON.parse(localStorage.getItem("obi-saved") || "[]");
-                        if (!saved.find((s: SearchResult) => s.id === result.id)) {
-                          saved.push(result);
-                          localStorage.setItem("obi-saved", JSON.stringify(saved));
-                        }
+                        if (!user) return;
+                        saveSound({
+                          title: result.title,
+                          bpm: result.bpm,
+                          tags: result.tags ?? [],
+                          year: result.year,
+                          matchPercent: result.score,
+                        });
                       }},
                       { icon: Link2, label: "Share", action: () => {
                         const shareData = { title: result.title, text: `Check out this sound: ${result.title}`, url: result.url };
@@ -630,3 +660,6 @@ export default function Home() {
     </>
   );
 }
+
+
+
