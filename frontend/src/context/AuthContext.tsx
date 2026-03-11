@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, []);
-  }, []);
 
   const persist = (u: User) => {
     localStorage.setItem("obi_user", JSON.stringify(u));
