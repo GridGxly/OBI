@@ -207,7 +207,7 @@ export default function Home() {
         {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} />}
         <div className="flex flex-col items-center justify-center text-center z-30 relative w-full max-w-3xl">
           <motion.h1
-            className="font-display font-bold text-white mb-1"
+            className="font-display font-bold text-white mb-1 cursor-pointer"
             style={{
               fontSize: hasResults ? 32 : 80,
               letterSpacing: hasResults ? "0.25em" : "0.35em",
@@ -217,6 +217,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
+            onClick={() => setIsFocused(true)}
           >
             OBI
           </motion.h1>
