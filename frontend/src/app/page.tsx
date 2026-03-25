@@ -180,7 +180,7 @@ export default function Home() {
         className="flex min-h-screen flex-col items-center justify-start px-6 md:px-12 relative max-w-[1400px] mx-auto"
         style={{
           paddingTop: hasResults ? 48 : "16vh",
-          paddingBottom: 96,
+          paddingBottom: 160,
           transition: "padding-top 0.7s cubic-bezier(0.4, 0, 0.2, 1)",
           opacity: isScanning ? 0 : 1,
           transitionProperty: "padding-top, opacity",
@@ -432,7 +432,7 @@ export default function Home() {
                           </button>
                         </div>
                         <div className="px-2 pb-2">
-                          <AudioPlayer url={filePreviewUrl} />
+                          <AudioPlayer track={{ id: "preview", title: file.name, url: filePreviewUrl, tags: ["Upload"] }} />
                         </div>
                       </div>
                     )}
@@ -593,7 +593,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  <AudioPlayer url={result.url} />
+                  <AudioPlayer track={result} playlist={results} />
 
                   <div
                     className="flex items-center gap-3 opacity-0 translate-y-1 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-250"
