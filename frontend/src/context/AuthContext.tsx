@@ -24,7 +24,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("obi_user");
-      if (stored) setUser(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<User>;
+        if (parsed && Array.isArray(parsed.savedSounds)) {
+          setUser(parsed as User);
+        } else {
+          localStorage.removeItem("obi_user");
+        }
+      }
+    } catch {
+      localStorage.removeItem("obi_user");
+      setError("Saved session data was corrupted and has been cleared.");
     } finally {
       setIsLoading(false);
     }

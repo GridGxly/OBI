@@ -27,14 +27,16 @@ export default function ScanningOverlay({ onComplete }: ScanningOverlayProps) {
       intervals.push(setTimeout(() => setPhase(i), i * PHASE_DURATION));
     }
 
+    let exitTimeout: ReturnType<typeof setTimeout> | null = null;
     timerRef.current = setTimeout(() => {
       setExiting(true);
-      setTimeout(onComplete, 300);
+      exitTimeout = setTimeout(onComplete, 300);
     }, TOTAL_DURATION);
 
     return () => {
       intervals.forEach(clearTimeout);
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (exitTimeout) clearTimeout(exitTimeout);
     };
   }, [onComplete]);
 

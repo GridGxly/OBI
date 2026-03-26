@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { PlayerProvider } from "@/context/PlayerContext";
+import NowPlayingBar from "@/components/NowPlayingBar";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -47,7 +49,12 @@ export default function RootLayout({
         <div className="grain-overlay" />
         <div className="ambient-glow" id="ambient-glow" />
         <div className="relative z-10 min-h-screen">
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <PlayerProvider>
+              {children}
+              <NowPlayingBar />
+            </PlayerProvider>
+          </AuthProvider>
         </div>
       </body>
     </html>

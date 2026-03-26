@@ -20,12 +20,12 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" />
-  <img src="https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react" />
-  <img src="https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi" />
-  <img src="https://img.shields.io/badge/Qdrant-Vector_DB-dc244c?style=flat-square" />
-  <img src="https://img.shields.io/badge/Tailwind-v4-38bdf8?style=flat-square&logo=tailwindcss" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js 16 badge" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react" alt="React 19 badge" /></a>
+  <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi" alt="FastAPI badge" /></a>
+  <a href="https://qdrant.tech/"><img src="https://img.shields.io/badge/Qdrant-Vector_DB-dc244c?style=flat-square" alt="Qdrant badge" /></a>
+  <a href="https://tailwindcss.com/"><img src="https://img.shields.io/badge/Tailwind-v4-38bdf8?style=flat-square&logo=tailwindcss" alt="Tailwind CSS v4 badge" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT license badge" /></a>
 </p>
 
 <br/>
@@ -54,43 +54,46 @@ Think **Shazam, but for producers** — you feed it audio DNA and it finds you t
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (Next.js 16)                │
-│                                                         │
-│   page.tsx ── ParticleCanvas ── ScanningOverlay         │
-│      │           AudioPlayer ── AuthModal               │
-│      │           Search Results Cards                   │
-│      │                                                  │
-│   profile/page.tsx ── SoundCard                         │
-│   ui-sandbox/ ── VibeKnob                               │
-└──────────────────────┬──────────────────────────────────┘
-                       │  POST /embed
-                       ▼
-┌──────────────────────────────────────────────────────────┐
-│                   BACKEND (FastAPI)                      │
-│                                                          │
-│   main.py ── embed router ── health check                │
-│                 │                                        │
-│           embeddings service                             │
-│           search service                                 │
-│           storage service                                │
-└──────────────────────┬───────────────────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────────────────┐
-│                  ML PIPELINE (Python)                    │
-│                                                          │
-│   embed.py ── MFCC → 128-d vector                        │
-│   index_seed_data.py ── Qdrant indexer                   │
-│   evaluate.py ── search quality check                    │
-└──────────────────────┬───────────────────────────────────┘
-                       │
-                       ▼
-                 ┌───────────┐
-                 │  Qdrant   │
-                 │ Vector DB │
-                 └───────────┘
+```mermaid
+graph TD
+    subgraph Frontend ["Frontend — Next.js 16"]
+        UI[page.tsx]
+        PC[ParticleCanvas]
+        SO[ScanningOverlay]
+        AP[AudioPlayer]
+        AM[AuthModal]
+        PP[profile/page.tsx]
+        VK[VibeKnob]
+        UI --> PC & SO & AP & AM
+        PP --> VK
+    end
+
+    subgraph Backend ["Backend — FastAPI"]
+        MAIN[main.py]
+        ER[embed router]
+        ES[embeddings service]
+        SS[search service]
+        ST[storage service]
+        MAIN --> ER
+        ER --> ES & SS & ST
+    end
+
+    subgraph ML ["ML Pipeline — Python"]
+        EMB[embed.py — MFCC → 128-d vector]
+        IDX[index_seed_data.py]
+        EVAL[evaluate.py]
+    end
+
+    QD[(Qdrant Vector DB)]
+
+    Frontend -- "POST /embed" --> Backend
+    Backend --> ML
+    ML --> QD
+
+    style Frontend fill:#0d0d0d,stroke:#d4af37,stroke-width:2px,color:#fff
+    style Backend fill:#0d0d0d,stroke:#d4af37,stroke-width:2px,color:#fff
+    style ML fill:#0d0d0d,stroke:#d4af37,stroke-width:2px,color:#fff
+    style QD fill:#1a1a1a,stroke:#d4af37,stroke-width:2px,color:#d4af37
 ```
 
 <br/>
@@ -113,13 +116,19 @@ Think **Shazam, but for producers** — you feed it audio DNA and it finds you t
 
 ## Getting Started
 
-### Prerequisites
+<details>
+<summary><strong>Prerequisites</strong></summary>
+<br/>
 
 - **Node.js** ≥ 20
 - **Python** ≥ 3.10
 - **pnpm** (recommended) or npm
 
-### Frontend
+</details>
+
+<details>
+<summary><strong>Frontend</strong></summary>
+<br/>
 
 ```bash
 cd frontend
@@ -129,7 +138,11 @@ pnpm dev
 
 Runs at `http://localhost:3000`.
 
-### Backend
+</details>
+
+<details>
+<summary><strong>Backend</strong></summary>
+<br/>
 
 ```bash
 cd backend
@@ -141,7 +154,11 @@ uvicorn app.main:app --reload
 
 API at `http://localhost:8000` — health check: `GET /health`.
 
-### ML Pipeline
+</details>
+
+<details>
+<summary><strong>ML Pipeline</strong></summary>
+<br/>
 
 ```bash
 cd ml
@@ -151,6 +168,8 @@ python embed.py path/to/audio.wav        # Embed a single file
 python index_seed_data.py                # Index seed data into Qdrant
 python evaluate.py path/to/query.wav     # Evaluate search quality
 ```
+
+</details>
 
 <br/>
 

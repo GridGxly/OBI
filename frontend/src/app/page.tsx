@@ -83,8 +83,10 @@ export default function Home() {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-        const recordedFile = new File([audioBlob], "recording.wav", { type: "audio/wav" });
+        const mimeType = mediaRecorder.mimeType || "audio/webm";
+        const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const recordedFile = new File([audioBlob], `recording.${extension}`, { type: mimeType });
         setFile(recordedFile);
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -178,7 +180,7 @@ export default function Home() {
         className="flex min-h-screen flex-col items-center justify-start px-6 md:px-12 relative max-w-[1400px] mx-auto"
         style={{
           paddingTop: hasResults ? 48 : "16vh",
-          paddingBottom: 96,
+          paddingBottom: 160,
           transition: "padding-top 0.7s cubic-bezier(0.4, 0, 0.2, 1)",
           opacity: isScanning ? 0 : 1,
           transitionProperty: "padding-top, opacity",
@@ -205,7 +207,7 @@ export default function Home() {
         {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} />}
         <div className="flex flex-col items-center justify-center text-center z-30 relative w-full max-w-3xl">
           <motion.h1
-            className="font-display font-bold text-white mb-1"
+            className="font-display font-bold text-white mb-1 cursor-pointer"
             style={{
               fontSize: hasResults ? 32 : 80,
               letterSpacing: hasResults ? "0.25em" : "0.35em",
@@ -215,6 +217,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
+            onClick={() => setIsFocused(true)}
           >
             OBI
           </motion.h1>
@@ -429,7 +432,7 @@ export default function Home() {
                           </button>
                         </div>
                         <div className="px-2 pb-2">
-                          <AudioPlayer url={filePreviewUrl} />
+                          <AudioPlayer track={{ id: "preview", title: file.name, url: filePreviewUrl, tags: ["Upload"] }} />
                         </div>
                       </div>
                     )}
@@ -590,7 +593,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  <AudioPlayer url={result.url} />
+                  <AudioPlayer track={result} playlist={results} />
 
                   <div
                     className="flex items-center gap-3 opacity-0 translate-y-1 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-250"

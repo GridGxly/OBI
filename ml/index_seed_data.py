@@ -21,7 +21,7 @@ COLLECTION_NAME = "audio_samples"
 
 
 def main():
-    client = QdrantClient(":memory:")
+    client = QdrantClient(path="qdrant_storage")
 
     # Create collection if it doesn't exist
     client.recreate_collection(
