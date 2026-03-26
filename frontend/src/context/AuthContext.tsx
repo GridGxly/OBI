@@ -69,10 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const saveSound = (sound: Omit<SavedSound, "id" | "savedAt">) => {
     if (!user) return;
-    const updated = { ...user, savedSounds: [{ ...sound, id: crypto.randomUUID(), savedAt: new Date().toISOString() }, ...user.savedSounds] };
+    const filtered = user.savedSounds.filter(s => s.title !== sound.title);
+    const newSound = { ...sound, id: crypto.randomUUID(), savedAt: new Date().toISOString() };
+    const updated = { ...user, savedSounds: [newSound, ...filtered] };
     persist(updated);
   };
-
   const removeSavedSound = (soundId: string) => {
     if (!user) return;
     persist({ ...user, savedSounds: user.savedSounds.filter(s => s.id !== soundId) });
