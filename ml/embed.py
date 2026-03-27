@@ -1,57 +1,70 @@
 """
 Purpose:
-- Convert audio file → embedding vector
+- Convert audio file → embedding vector using CLAP (Contrastive Language-Audio Pretraining)
 
-Current implementation:
-- Uses a simple placeholder embedding based on MFCC features.
-- This will later be replaced with CLAP or another contrastive audio model.
+Notes:
+- Uses HuggingFace Transformers CLAP model
+- Replaces MFCC-based embedding with learned audio embeddings
+- Outputs a fixed-size vector suitable for vector DB (Qdrant)
+
+Dependencies:
+- pip install transformers torchaudio librosa torch
 """
 
 import numpy as np
+import torch
 import librosa
+from transformers import ClapProcessor, ClapModel
 
 
-EMBEDDING_DIM = 128  # fixed size output vector
+# Load model once (global for efficiency)
+device = "cpu"
+model = ClapModel.from_pretrained("laion/clap-htsat-unfused").to(device)
+processor = ClapProcessor.from_pretrained("laion/clap-htsat-unfused")
+
+EMBEDDING_DIM = 512  # CLAP default embedding size
 
 
-def embed(audio_path: str) -> np.ndarray:
-    """
-    Convert an audio file into a fixed-length embedding vector.
+def embed_audio(audio_path: str) -> np.ndarray:
+    y, sr = librosa.load(audio_path, sr=48000, mono=True)
 
-    Steps:
-    1. Load audio
-    2. Extract MFCC features
-    3. Average across time
-    4. Pad or trim to fixed embedding size
-    """
+    inputs = processor(
+        audios=y,
+        sampling_rate=48000,
+        return_tensors="pt"
+    ).to(device)
 
-    # Load audio (mono)
-    y, sr = librosa.load(audio_path, sr=22050, mono=True)
+    with torch.no_grad():
+        outputs = model.get_audio_features(**inputs)
 
-    # Extract MFCCs
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=EMBEDDING_DIM)
+    embedding = outputs[0].cpu().numpy()
+    return embedding / np.linalg.norm(embedding)
 
-    # Average across time axis
-    embedding = np.mean(mfcc, axis=1)
 
-    # Ensure fixed size
-    if len(embedding) > EMBEDDING_DIM:
-        embedding = embedding[:EMBEDDING_DIM]
-    elif len(embedding) < EMBEDDING_DIM:
-        padding = EMBEDDING_DIM - len(embedding)
-        embedding = np.pad(embedding, (0, padding))
+def embed_text(text: str) -> np.ndarray:
+    inputs = processor(
+        text=[text],
+        return_tensors="pt",
+        padding=True
+    ).to(device)
 
-    return embedding.astype(np.float32)
+    with torch.no_grad():
+        outputs = model.get_text_features(**inputs)
+
+    embedding = outputs[0].cpu().numpy()
+    return embedding / np.linalg.norm(embedding)
 
 
 if __name__ == "__main__":
-    # Simple local test
+    # Simple test
+    
     import sys
 
     if len(sys.argv) < 2:
         print("Usage: python embed.py path/to/audio.wav")
         sys.exit(1)
 
-    vec = embed(sys.argv[1])
-    print("Embedding shape:", vec.shape)
-    print("First 5 values:", vec[:5])
+    # vec = embed(sys.argv[1])
+    # print("Embedding shape:", vec.shape)
+    # print("First 5 values:", vec[:5])
+
