@@ -72,6 +72,31 @@ export default function VibeKnob({
     window.addEventListener("mouseup", handleMouseUp);
   }, [value, min, max, onChange]);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    dragRef.current = { startY: touch.clientY, startVal: value };
+
+    const handleTouchMove = (ev: TouchEvent) => {
+      if (!dragRef.current) return;
+      const touch = ev.touches[0];
+      const delta = dragRef.current.startY - touch.clientY;
+      const range = max - min;
+      const newVal = Math.round(
+        Math.min(max, Math.max(min, dragRef.current.startVal + (delta / 120) * range))
+      );
+      onChange(newVal);
+    };
+
+    const handleTouchEnd = () => {
+      dragRef.current = null;
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+  }, [value, min, max, onChange]);
+
   return (
     <div className="flex flex-col items-center gap-1.5 select-none" ref={containerRef}>
       <span
@@ -84,6 +109,8 @@ export default function VibeKnob({
       <div
         className="relative w-20 h-20 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        style={{ touchAction: "none" }}
       >
         <svg className="absolute inset-0" viewBox="0 0 80 80" fill="none">
           <path

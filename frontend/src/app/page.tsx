@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
 import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
-import SoundKnobs from "@/components/SoundKnobs"
+import SoundKnobs from "@/components/SoundKnobs";
+import FiltersPanel from "@/components/FiltersPanel";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -49,6 +50,16 @@ export default function Home() {
   const hasResults = results.length > 0;
   const hasInput = !!query || !!file;
   const activeMode: "text" | "upload" | "mic" = isRecording ? "mic" : file ? "upload" : "text";
+
+  const [filters, setFilters] = useState({ dust: 0, warmth: 0, crunch: 0 });
+
+  const handleFilterChange = useCallback((key: "dust" | "warmth" | "crunch", value: number) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleFilterReset = useCallback(() => {
+    setFilters({ dust: 0, warmth: 0, crunch: 0 });
+  }, []);
 
   const MAX_HISTORY_ITEMS = 6;
   const searchHistoryKey = user ? `obi_search_history_${user.id}` : "obi_search_history_guest";
@@ -255,7 +266,10 @@ export default function Home() {
     try {
       const formData = new FormData();
       if (query) formData.append("query", query);
-      if (file) formData.append("file", file);
+      if (file) formData.append("audio", file);
+      formData.append("dust", String(filters.dust));
+      formData.append("warmth", String(filters.warmth));
+      formData.append("crunch", String(filters.crunch));
 
       // ✨ Real FastAPI integration proving all components! 
       
@@ -876,6 +890,12 @@ export default function Home() {
                 <span>Results</span>
                 <span>Match %</span>
               </div>
+
+              <FiltersPanel
+                values={filters}
+                onChange={handleFilterChange}
+                onReset={handleFilterReset}
+              />
 
               {results.map((result, i) => (
                 <div
