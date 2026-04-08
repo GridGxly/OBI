@@ -30,6 +30,7 @@ export default function NowPlayingBar() {
     duration,
     volume,
     audioRef,
+    previewAudioRef,
     togglePlay,
     seek,
     setVolume,
@@ -172,6 +173,7 @@ export default function NowPlayingBar() {
   return (
     <>
       <audio ref={audioRef} src={currentTrack?.url} className="hidden" preload="auto" />
+      <audio ref={previewAudioRef} className="hidden" preload="none" />
 
       <AnimatePresence>
         {currentTrack && (

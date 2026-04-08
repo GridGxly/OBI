@@ -9,6 +9,7 @@ import SoundKnobs from "@/components/SoundKnobs"
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
 import { useToast } from "@/context/ToastContext";
+import { usePlayer } from "@/context/PlayerContext";
 
 import ParticleCanvas from "@/components/ParticleCanvas";
 import ScanningOverlay from "@/components/ScanningOverlay";
@@ -40,7 +41,10 @@ export default function Home() {
 
   const { user, logout, saveSound } = useAuth();
   const { showToast } = useToast();
+  const { startPreview, stopPreview } = usePlayer();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window);
 
   const hasResults = results.length > 0;
   const hasInput = !!query || !!file;
@@ -890,6 +894,8 @@ export default function Home() {
                     el.style.borderColor = "rgba(212,175,55,0.15)";
                     el.style.transform = "translateY(-3px) scale(1.005)";
                     el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,175,55,0.08)";
+
+                    if (!isTouchDevice) startPreview(result.url);
                   }}
                   onMouseLeave={(e) => {
                     const el = e.currentTarget;
@@ -897,6 +903,8 @@ export default function Home() {
                     el.style.borderColor = "rgba(255,255,255,0.05)";
                     el.style.transform = "translateY(0) scale(1)";
                     el.style.boxShadow = "none";
+
+                    stopPreview();
                   }}
                 >
                   <div

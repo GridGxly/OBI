@@ -32,6 +32,10 @@ interface PlayerContextType {
   setProgress: (progress: number) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
+  previewAudioRef: React.RefObject<HTMLAudioElement | null>;
+  isPreviewPlaying: boolean;
+  startPreview: (url: string) => void;
+  stopPreview: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -45,8 +49,53 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.8);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement>(null);
+  const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
+    };
+  }, []);
+
+  const stopPreview = useCallback(() => {
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+    }
+    setIsPreviewPlaying(false);
+  }, []);
+
+  const startPreview = useCallback((url: string) => {
+    if (isPlaying) return;
+
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+    }
+
+    previewTimeoutRef.current = setTimeout(() => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.src = url;
+        previewAudioRef.current.volume = 0.35;
+        previewAudioRef.current.currentTime = 0;
+        previewAudioRef.current.play().catch(() => {});
+        setIsPreviewPlaying(true);
+
+        previewTimeoutRef.current = setTimeout(() => {
+          stopPreview();
+        }, 3000);
+      }
+    }, 500);
+  }, [isPlaying, stopPreview]);
 
   const loadTrack = useCallback((track: Track, playlist?: Track[]) => {
+    stopPreview();
+
     if (playlist) {
       setQueue(playlist);
     }
@@ -69,7 +118,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(true);
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack, isPlaying, stopPreview]);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !currentTrack) return;
@@ -174,6 +223,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setProgress,
         setCurrentTime,
         setDuration,
+        previewAudioRef,
+        isPreviewPlaying,
+        startPreview,
+        stopPreview,
       }}
     >
       {children}
