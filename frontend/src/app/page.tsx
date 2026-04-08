@@ -1059,16 +1059,24 @@ export default function Home() {
               </AnimatePresence>
 
               {results.map((result, i) => (
-                <div
+                <motion.div
                   key={result.id}
-                  className="group/card flex flex-col gap-2 rounded-[14px] relative transition-all duration-200"
-                  style={{
-                    padding: "20px 22px",
-                    background: "var(--bg-surface)",
-                    border: "1px solid var(--border-default)",
-                    animation: `slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.1}s both`,
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: i * 0.08,
+                    duration: 0.35,
+                    ease: [0.4, 0, 0.2, 1],
                   }}
-                  onMouseEnter={(e) => {
+                >
+                  <div
+                    className="group/card flex flex-col gap-2 rounded-[14px] relative transition-all duration-200"
+                    style={{
+                      padding: "20px 22px",
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border-default)",
+                    }}
+                    onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "rgba(212,175,55,0.12)";
                     e.currentTarget.style.background = "rgba(255,255,255,0.025)";
                     e.currentTarget.style.transform = "translateY(-1px)";
@@ -1179,6 +1187,7 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+                </motion.div>
               ))}
             </motion.div>
           )}
