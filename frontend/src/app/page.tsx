@@ -5,6 +5,7 @@ import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Play, History, X, R
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
 import VibeKnob from "@/components/VibeKnob";
+import ExampleSearches from "@/components/ExampleSearches";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -908,6 +909,13 @@ export default function Home() {
               )}
             </AnimatePresence>
           </motion.div>
+
+          {!hasResults && !isFocused && !isScanning && (
+            <ExampleSearches onSelect={(q) => {
+              setQuery(q);
+              setIsFocused(true);
+            }} />
+          )}
 
           {error && (
             <motion.div
