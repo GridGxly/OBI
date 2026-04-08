@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { PlayerProvider } from "@/context/PlayerContext";
 import { ToastProvider } from "@/context/ToastContext";
+import KeyboardHint from "@/components/KeyboardHint";
 import NowPlayingBar from "@/components/NowPlayingBar";
 import Toast from "@/components/Toast";
 
@@ -55,6 +56,7 @@ export default function RootLayout({
             <PlayerProvider>
               <ToastProvider>
                 {children}
+                <KeyboardHint />
                 <NowPlayingBar />
                 <Toast />
               </ToastProvider>
