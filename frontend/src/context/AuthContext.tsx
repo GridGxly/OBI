@@ -45,11 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   };
 
-  // TEMP mocks — swap these for real fetch() calls when backend is ready
+  // Connected to FastAPI locally initially to verify pipeline
   const signUp = async (email: string, username: string, password: string) => {
     setIsLoading(true);
     setError(null);
     try {
+      const res = await fetch("http://localhost:8000/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, username, password }),
+      });
+      if (!res.ok) throw new Error("Backend rejected registration");
+      
+      const data = await res.json();
+      localStorage.setItem("obi_token", data.access_token);
+      
       persist({ id: crypto.randomUUID(), email, username, createdAt: new Date().toISOString(), savedSounds: [] });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Sign-up failed");
@@ -63,6 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
+      const res = await fetch("http://localhost:8000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) throw new Error("Backend rejected login");
+
+      const data = await res.json();
+      localStorage.setItem("obi_token", data.access_token);
+
       persist({ id: "mock-id", email, username: email.split("@")[0], createdAt: new Date().toISOString(), savedSounds: [] });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Login failed");
@@ -79,10 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const saveSound = (sound: Omit<SavedSound, "id" | "savedAt">) => {
     if (!user) return;
-    const updated = { ...user, savedSounds: [{ ...sound, id: crypto.randomUUID(), savedAt: new Date().toISOString() }, ...user.savedSounds] };
+    const filtered = user.savedSounds.filter(s => s.title !== sound.title);
+    const newSound = { ...sound, id: crypto.randomUUID(), savedAt: new Date().toISOString() };
+    const updated = { ...user, savedSounds: [newSound, ...filtered] };
     persist(updated);
   };
-
   const removeSavedSound = (soundId: string) => {
     if (!user) return;
     persist({ ...user, savedSounds: user.savedSounds.filter(s => s.id !== soundId) });

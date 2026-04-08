@@ -4,7 +4,3 @@ httpx
 qdrant-client
 pytest
 pytest-asyncio
-torch
-torchaudio
-transformers
-librosa
