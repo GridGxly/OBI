@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
-import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Play, History, X, RefreshCw, ArrowLeft } from "lucide-react";
+import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Play, History, X, RefreshCw, ArrowLeft, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
-import FiltersPanel from "@/components/FiltersPanel";
+import VibeKnob from "@/components/VibeKnob";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -42,6 +42,7 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isUtilityPanelOpen, setIsUtilityPanelOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
@@ -956,19 +957,80 @@ export default function Home() {
                   </div>
                 )}
                 <div
-                  className="flex items-center justify-between font-data text-[10px] uppercase pb-2"
-                  style={{ letterSpacing: "3px", color: "var(--text-tertiary)", borderBottom: "1px solid var(--border-default)" }}
+                  className="flex items-center justify-between mb-2 pb-2"
+                  style={{ borderBottom: "1px solid var(--border-default)" }}
                 >
-                  <span>Results</span>
-                  <span>Match %</span>
+                  <span
+                    className="font-data text-[10px] uppercase tracking-[3px]"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    Results
+                  </span>
+
+                  <button
+                    onClick={() => setFiltersOpen(prev => !prev)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all duration-200"
+                    style={{
+                      color: (filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0)
+                        ? "var(--accent)"
+                        : "var(--text-tertiary)",
+                      background: filtersOpen ? "rgba(212,175,55,0.05)" : "transparent",
+                      border: filtersOpen ? "1px solid rgba(212,175,55,0.12)" : "1px solid transparent",
+                    }}
+                  >
+                    <SlidersHorizontal size={11} />
+                    <span className="font-data text-[9px] uppercase tracking-[2px]">Filters</span>
+                    {(filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0) && (
+                      <span className="w-1 h-1 rounded-full" style={{ background: "var(--accent)" }} />
+                    )}
+                  </button>
+
+                  <span
+                    className="font-data text-[10px] uppercase tracking-[3px]"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    Match %
+                  </span>
                 </div>
               </div>
 
-              <FiltersPanel
-                values={filters}
-                onChange={handleFilterChange}
-                onReset={handleFilterReset}
-              />
+              <AnimatePresence>
+                {filtersOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="flex flex-col items-center gap-6 py-8 px-6 mb-6 rounded-xl"
+                      style={{
+                        background: "rgba(255,255,255,0.015)",
+                        border: "1px solid rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      <div className="flex items-center justify-center gap-8 sm:gap-12 flex-wrap">
+                        <VibeKnob label="Dust" value={filters.dust} onChange={(v) => handleFilterChange("dust", v)} />
+                        <VibeKnob label="Warmth" value={filters.warmth} onChange={(v) => handleFilterChange("warmth", v)} />
+                        <VibeKnob label="Crunch" value={filters.crunch} onChange={(v) => handleFilterChange("crunch", v)} />
+                      </div>
+                      {(filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0) && (
+                        <button
+                          onClick={handleFilterReset}
+                          className="flex items-center gap-1.5 font-data text-[9px] uppercase tracking-[3px] transition-colors duration-150"
+                          style={{ color: "var(--text-tertiary)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                        >
+                          <RotateCcw size={10} />
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {results.map((result, i) => (
                 <div
