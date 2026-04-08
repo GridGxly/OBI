@@ -35,6 +35,9 @@ export default function Home() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isUtilityPanelOpen, setIsUtilityPanelOpen] = useState(false);
 
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
+
   const { user, logout, saveSound } = useAuth();
   const { showToast } = useToast();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
@@ -287,15 +290,98 @@ export default function Home() {
     setResults(pendingResultsRef.current);
   }, [closeSearchUi]);
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounterRef.current = 0;
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length === 0) return;
+
+    const droppedFile = droppedFiles[0];
+    const validTypes = ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/webm", "audio/ogg"];
+    if (!validTypes.includes(droppedFile.type)) {
+      setError("Please drop a .wav, .mp3, or audio file.");
+      showToast("Invalid file type", "error");
+      return;
+    }
+
+    setFile(droppedFile);
+    setIsFocused(true);
+    showToast(`${droppedFile.name} loaded`, "success");
+  };
+
   const ghostBtn: CSSProperties = { background: "none", border: "1px solid #2a2a2a", color: "#666", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", cursor: "pointer" };
   const goldBtn: CSSProperties = { backgroundColor: "#b8a96a", border: "none", color: "#0a0a0a", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", fontWeight: 600, cursor: "pointer" };
 
   return (
-    <>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="min-h-screen"
+    >
       <ParticleCanvas isScanning={isScanning} />
 
       <AnimatePresence>
         {isScanning && <ScanningOverlay onComplete={handleScanComplete} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[55] flex items-center justify-center"
+            style={{
+              background: "rgba(6,6,6,0.85)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div
+              className="flex flex-col items-center gap-4 p-12 rounded-2xl"
+              style={{
+                border: "2px dashed rgba(212,175,55,0.4)",
+                background: "rgba(212,175,55,0.03)",
+              }}
+            >
+              <Upload size={48} style={{ color: "var(--accent-dim)" }} />
+              <span className="font-display text-lg font-semibold" style={{ color: "var(--accent)" }}>
+                Drop your audio here
+              </span>
+              <span className="font-data text-[10px] uppercase tracking-[3px]" style={{ color: "var(--text-tertiary)" }}>
+                .wav, .mp3, or any audio file
+              </span>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <main
@@ -931,6 +1017,6 @@ export default function Home() {
           )}
         </AnimatePresence>
       </main>
-    </>
+    </div>
   );
 }
