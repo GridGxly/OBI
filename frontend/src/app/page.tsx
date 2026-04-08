@@ -4,7 +4,6 @@ import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
 import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X, RefreshCw, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
-import SoundKnobs from "@/components/SoundKnobs";
 import FiltersPanel from "@/components/FiltersPanel";
 
 import { useAuth } from "@/context/AuthContext";
@@ -1054,8 +1053,6 @@ export default function Home() {
                   )}
 
                   <AudioPlayer track={result} playlist={results} />
-
-                  <SoundKnobs resultId={result.id} />
 
                   <div className="flex items-center gap-3 opacity-100 md:opacity-0 md:translate-y-1 md:group-hover/card:opacity-100 md:group-hover/card:translate-y-0 transition-all duration-250">
                     {[
