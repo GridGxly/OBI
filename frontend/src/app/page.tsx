@@ -590,6 +590,20 @@ export default function Home() {
                 placeholder={isRecording ? "Recording in progress…" : file ? "Audio file loaded" : "Describe a sound or vibe…"}
               />
               <div className="flex items-center gap-1">
+                {query && !isRecording && !file && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQuery("");
+                    }}
+                    className="p-1.5 rounded-md transition-colors duration-150"
+                    style={{ color: "rgba(255,255,255,0.15)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.15)"; }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -644,6 +658,17 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {query.length >= 3 && !isFocused && (
+              <div className="pb-3 w-full">
+                <p
+                  className="font-data text-[9px] uppercase tracking-[2px] text-center mt-0"
+                  style={{ color: "rgba(255,255,255,0.1)" }}
+                >
+                  Press Enter to search
+                </p>
+              </div>
+            )}
 
             {/* ── History dropdown — attached directly to the search bar ── */}
             <AnimatePresence>
