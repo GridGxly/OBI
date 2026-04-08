@@ -410,7 +410,7 @@ export default function Home() {
           transitionDuration: "0.7s, 0.5s",
         }}
       >
-        <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem" }}>
+        <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem" }} className="text-xs sm:text-sm">
           {user ? (
             <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
               <a href="/profile" style={{ color: "#b8a96a", fontSize: "0.7rem", letterSpacing: "0.1rem" }}>
@@ -432,7 +432,7 @@ export default function Home() {
           <motion.h1
             className="font-display font-bold text-white mb-1 cursor-pointer"
             style={{
-              fontSize: hasResults ? 32 : 80,
+              fontSize: hasResults ? 32 : "clamp(48px, 10vw, 80px)",
               letterSpacing: hasResults ? "0.25em" : "0.35em",
               textShadow: "0 0 60px rgba(212,175,55,0.08)",
               transition: "font-size 0.7s cubic-bezier(0.4,0,0.2,1), letter-spacing 0.7s cubic-bezier(0.4,0,0.2,1)",
@@ -714,7 +714,7 @@ export default function Home() {
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-[10px]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
@@ -963,7 +963,7 @@ export default function Home() {
 
                   <SoundKnobs resultId={result.id} />
 
-                  <div className="flex items-center gap-3 opacity-0 translate-y-1 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-250">
+                  <div className="flex items-center gap-3 opacity-100 md:opacity-0 md:translate-y-1 md:group-hover/card:opacity-100 md:group-hover/card:translate-y-0 transition-all duration-250">
                     {[
                       { icon: Bookmark, label: "Save", action: () => {
                         if (!user) {

@@ -199,8 +199,8 @@ export default function NowPlayingBar() {
               />
             </div>
 
-            <div className="flex items-center justify-between px-4 md:px-6 py-3" style={{ height: "72px" }}>
-              <div className="flex items-center gap-3 w-[28%] min-w-[140px]">
+            <div className="flex items-center justify-between px-4 md:px-6 py-3 h-[72px] sm:h-[72px]">
+              <div className="flex items-center gap-3 w-[28%] min-w-[100px] sm:min-w-[140px]">
                 <div
                   className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center"
                   style={{
@@ -247,7 +247,7 @@ export default function NowPlayingBar() {
                   <button
                     onClick={skipPrev}
                     disabled={!canSkipPrev}
-                    className="transition-colors duration-150 disabled:opacity-20"
+                    className="p-2 transition-colors duration-150 disabled:opacity-20"
                     style={{ color: "rgba(255,255,255,0.4)" }}
                     onMouseEnter={(e) => { if (canSkipPrev) e.currentTarget.style.color = "rgba(255,255,255,0.9)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
@@ -257,7 +257,7 @@ export default function NowPlayingBar() {
 
                   <button
                     onClick={togglePlay}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200"
+                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200"
                     style={{
                       background: isPlaying
                         ? "rgba(212,175,55,0.15)"
@@ -278,7 +278,7 @@ export default function NowPlayingBar() {
                   <button
                     onClick={skipNext}
                     disabled={!canSkipNext}
-                    className="transition-colors duration-150 disabled:opacity-20"
+                    className="p-2 transition-colors duration-150 disabled:opacity-20"
                     style={{ color: "rgba(255,255,255,0.4)" }}
                     onMouseEnter={(e) => { if (canSkipNext) e.currentTarget.style.color = "rgba(255,255,255,0.9)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
@@ -287,7 +287,7 @@ export default function NowPlayingBar() {
                   </button>
                 </div>
 
-                <div className="w-full flex items-center gap-2">
+                <div className="w-full flex items-center gap-2 hidden sm:flex">
                   <span className="font-data text-[9px] tabular-nums text-white/25 w-8 text-right shrink-0">
                     {formatTime(currentTime)}
                   </span>
@@ -358,7 +358,7 @@ export default function NowPlayingBar() {
 
                 <button
                   onClick={dismiss}
-                  className="p-1.5 rounded-md transition-colors duration-150"
+                  className="p-2 rounded-md transition-colors duration-150"
                   style={{ color: "rgba(255,255,255,0.2)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.6)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}
