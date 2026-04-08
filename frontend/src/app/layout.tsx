@@ -3,8 +3,9 @@ import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { PlayerProvider } from "@/context/PlayerContext";
+import { ToastProvider } from "@/context/ToastContext";
 import NowPlayingBar from "@/components/NowPlayingBar";
-import { Toaster } from "@/components/ui/Toaster";
+import Toast from "@/components/Toast";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -52,12 +53,14 @@ export default function RootLayout({
         <div className="relative z-10 min-h-screen">
           <AuthProvider>
             <PlayerProvider>
-              {children}
-              <NowPlayingBar />
+              <ToastProvider>
+                {children}
+                <NowPlayingBar />
+                <Toast />
+              </ToastProvider>
             </PlayerProvider>
           </AuthProvider>
         </div>
-        <Toaster />
       </body>
     </html>
   );
