@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
-import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play } from "lucide-react";
+import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
+import SoundKnobs from "@/components/SoundKnobs"
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -31,11 +32,82 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isUtilityPanelOpen, setIsUtilityPanelOpen] = useState(false);
 
+  const { user, logout, saveSound } = useAuth();
+  const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
   const hasResults = results.length > 0;
   const hasInput = !!query || !!file;
   const activeMode: "text" | "upload" | "mic" = isRecording ? "mic" : file ? "upload" : "text";
+
+  const MAX_HISTORY_ITEMS = 6;
+  const searchHistoryKey = user ? `obi_search_history_${user.id}` : "obi_search_history_guest";
+
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(searchHistoryKey);
+      if (!raw) {
+        setSearchHistory([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setSearchHistory(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []);
+    } catch {
+      setSearchHistory([]);
+    }
+  }, [searchHistoryKey]);
+
+  const persistSearchHistory = useCallback((items: string[]) => {
+    setSearchHistory(items);
+    localStorage.setItem(searchHistoryKey, JSON.stringify(items));
+  }, [searchHistoryKey]);
+
+  const saveSearchToHistory = useCallback((rawQuery: string) => {
+    const normalized = rawQuery.trim();
+    if (!normalized) return;
+    const next = [
+      normalized,
+      ...searchHistory.filter((item) => item.toLowerCase() !== normalized.toLowerCase()),
+    ].slice(0, MAX_HISTORY_ITEMS);
+    persistSearchHistory(next);
+  }, [searchHistory, persistSearchHistory]);
+
+  const removeHistoryItem = useCallback((itemToRemove: string) => {
+    const next = searchHistory.filter((item) => item !== itemToRemove);
+    persistSearchHistory(next);
+  }, [searchHistory, persistSearchHistory]);
+
+  const clearSearchHistory = useCallback(() => {
+    persistSearchHistory([]);
+  }, [persistSearchHistory]);
+
+  const closeSearchUi = useCallback(() => {
+    setIsFocused(false);
+    setIsUtilityPanelOpen(false);
+  }, []);
+
+  const filteredHistory = query.trim()
+    ? searchHistory.filter((item) =>
+        item.toLowerCase().includes(query.trim().toLowerCase())
+      )
+    : searchHistory;
+
+  // History dropdown: show when focused, NOT in utility/file/recording mode, and has history
+  const showHistoryDropdown =
+    isFocused &&
+    !isUtilityPanelOpen &&
+    !isRecording &&
+    !file &&
+    filteredHistory.length > 0;
+
+  // Expanded utility panel: ONLY open when explicitly in utility mode (file loaded, recording, or panel toggled)
+  const showExpandedPanel = isUtilityPanelOpen || isRecording || !!file;
+
+  // Backdrop: show when utility panel is open
+  const showBackdrop = isFocused && showExpandedPanel;
 
   useEffect(() => {
     if (file) {
@@ -67,6 +139,18 @@ export default function Home() {
     }
   }, [isScanning]);
 
+  // Close history on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-search-container]")) {
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -88,6 +172,8 @@ export default function Home() {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         const recordedFile = new File([audioBlob], `recording.${extension}`, { type: mimeType });
         setFile(recordedFile);
+        setIsFocused(true);
+        setIsUtilityPanelOpen(true);
         stream.getTracks().forEach((track) => track.stop());
       };
 
@@ -121,13 +207,17 @@ export default function Home() {
         return;
       }
       setFile(selectedFile);
+      setIsFocused(true);
+      setIsUtilityPanelOpen(true);
     }
   };
 
   const pendingResultsRef = useRef<SearchResult[]>([]);
 
-  const handleSearch = async () => {
-    if (!file && !query) {
+  const handleSearch = async (queryOverride?: string) => {
+    const normalizedQuery = (queryOverride ?? query).trim();
+
+    if (!file && !normalizedQuery) {
       setError("Please type a query or upload an audio file to search.");
       return;
     }
@@ -135,11 +225,16 @@ export default function Home() {
     setIsScanning(true);
     setError("");
     setResults([]);
-    setIsFocused(false);
+    closeSearchUi();
+
+    if (normalizedQuery) {
+      setQuery(normalizedQuery);
+      saveSearchToHistory(normalizedQuery);
+    }
 
     try {
       const formData = new FormData();
-      if (query) formData.append("query", query);
+      if (normalizedQuery) formData.append("query", normalizedQuery);
       if (file) formData.append("audio", file);
 
       pendingResultsRef.current = [
@@ -158,12 +253,9 @@ export default function Home() {
 
   const handleScanComplete = useCallback(() => {
     setIsScanning(false);
-    setIsFocused(false);
+    closeSearchUi();
     setResults(pendingResultsRef.current);
-  }, []);
-
-  const { user, logout, saveSound } = useAuth();
-  const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+  }, [closeSearchUi]);
 
   const ghostBtn: CSSProperties = { background: "none", border: "1px solid #2a2a2a", color: "#666", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", cursor: "pointer" };
   const goldBtn: CSSProperties = { backgroundColor: "#b8a96a", border: "none", color: "#0a0a0a", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", fontWeight: 600, cursor: "pointer" };
@@ -187,7 +279,6 @@ export default function Home() {
           transitionDuration: "0.7s, 0.5s",
         }}
       >
-
         <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem" }}>
           {user ? (
             <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
@@ -205,7 +296,8 @@ export default function Home() {
         </div>
 
         {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} />}
-        <div className="flex flex-col items-center justify-center text-center z-30 relative w-full max-w-3xl">
+
+        <div className="flex flex-col items-center justify-center text-center z-50 relative w-full max-w-3xl">
           <motion.h1
             className="font-display font-bold text-white mb-1 cursor-pointer"
             style={{
@@ -251,22 +343,31 @@ export default function Home() {
             </motion.p>
           </div>
 
+          {/* ── Search container ── */}
           <motion.div
+            data-search-container
             className="relative w-full max-w-2xl mx-auto"
             style={{
               background: "rgba(255,255,255,0.025)",
               border: isFocused ? "1px solid rgba(212,175,55,0.15)" : "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 14,
+              borderRadius: showExpandedPanel ? 14 : showHistoryDropdown ? "14px 14px 0 0" : 14,
               backdropFilter: "blur(12px)",
-              transition: "border-color 0.3s ease",
+              transition: "border-color 0.3s ease, border-radius 0.2s ease",
+              zIndex: 40,
             }}
-            onClick={() => setIsFocused(true)}
-            onFocus={() => setIsFocused(true)}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <div className="relative flex items-center cursor-pointer" style={{ padding: "14px 18px" }} onClick={() => setIsFocused(true)}>
+            {/* ── Input row ── */}
+            <div
+              className="relative flex items-center cursor-pointer"
+              style={{ padding: "14px 18px" }}
+              onClick={() => {
+                setIsFocused(true);
+                // Don't open utility panel just from clicking the input row
+              }}
+            >
               <Search
                 className="h-5 w-5 shrink-0 transition-colors duration-300"
                 style={{ color: isFocused ? "var(--accent)" : "var(--text-tertiary)", opacity: isFocused ? 1 : 0.5 }}
@@ -274,9 +375,17 @@ export default function Home() {
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setIsFocused(true);
+                  // Typing text should NOT open utility panel
+                  if (!file && !isRecording) setIsUtilityPanelOpen(false);
+                }}
                 onKeyDown={(e) => e.key === "Enter" && hasInput && handleSearch()}
-                onFocus={() => setIsFocused(true)}
+                onFocus={() => {
+                  setIsFocused(true);
+                  if (!file && !isRecording) setIsUtilityPanelOpen(false);
+                }}
                 disabled={isRecording || !!file}
                 className="flex-1 bg-transparent pl-3 pr-2 outline-none font-display text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ color: "var(--text-primary)" }}
@@ -285,7 +394,13 @@ export default function Home() {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); if (isFocused) { fileInputRef.current?.click(); } else { setIsFocused(true); } }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsFocused(true);
+                    setIsUtilityPanelOpen(true);
+                    fileInputRef.current?.click();
+                  }}
                   className="p-2 rounded-lg transition-all duration-200"
                   style={{
                     color: file ? "var(--accent)" : "rgba(255,255,255,0.3)",
@@ -300,7 +415,17 @@ export default function Home() {
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); if (isRecording) { stopRecording(); } else { setIsFocused(true); startRecording(); } }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsFocused(true);
+                      setIsUtilityPanelOpen(true);
+                      if (isRecording) {
+                        stopRecording();
+                      } else {
+                        startRecording();
+                      }
+                    }}
                     className="p-2 rounded-lg transition-all duration-200"
                     style={{
                       color: isRecording ? "var(--accent)" : "rgba(255,255,255,0.3)",
@@ -322,8 +447,116 @@ export default function Home() {
               </div>
             </div>
 
+            {/* ── History dropdown — attached directly to the search bar ── */}
             <AnimatePresence>
-              {isFocused && (
+              {showHistoryDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  style={{
+                    position: "fixed",
+                    left: -1,
+                    right: -1,
+                    top: "100%",
+                    zIndex: 50,
+                    background: "#000000",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderTop: "1px solid rgba(255,255,255,0.04)",
+                    borderRadius: "0 0 14px 14px",
+                    backdropFilter: "blur(20px)",
+                    boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.03)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Header row */}
+                  <div
+                    className="flex items-center justify-between px-4 py-2.5"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                  >
+                    <span
+                      className="font-data text-[9px] uppercase"
+                      style={{ letterSpacing: "2.5px", color: "var(--text-tertiary)" }}
+                    >
+                      Recent searches
+                    </span>
+                    {searchHistory.length > 0 && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          clearSearchHistory();
+                        }}
+                        className="font-data text-[9px] uppercase transition-colors hover:text-white"
+                        style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+
+                  {/* History items — Google-style rows */}
+                  <div className="py-1.5">
+                    {filteredHistory.map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5 transition-colors"
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSearch(item);
+                          }}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          <History
+                            size={14}
+                            style={{ color: "var(--text-tertiary)", flexShrink: 0, opacity: 0.6 }}
+                          />
+                          <span
+                            className="truncate font-display text-[13px]"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {item}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeHistoryItem(item);
+                          }}
+                          className="shrink-0 p-1 rounded-md transition-colors"
+                          style={{ color: "var(--text-tertiary)", opacity: 0.5 }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "white"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                          title="Remove search"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Expanded utility panel — ONLY when file/recording/utility explicitly open ── */}
+            <AnimatePresence>
+              {showExpandedPanel && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
@@ -480,8 +713,6 @@ export default function Home() {
             </AnimatePresence>
           </motion.div>
 
-
-
           {error && (
             <motion.div
               className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl w-full max-w-2xl mt-6"
@@ -502,7 +733,7 @@ export default function Home() {
         <AnimatePresence>
           {hasResults && (
             <motion.div
-              className="w-full max-w-2xl flex flex-col gap-4 z-30 relative pb-20 mt-10"
+              className="w-full max-w-2xl flex flex-col gap-4 z-10 relative pb-20 mt-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
@@ -595,9 +826,9 @@ export default function Home() {
 
                   <AudioPlayer track={result} playlist={results} />
 
-                  <div
-                    className="flex items-center gap-3 opacity-0 translate-y-1 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-250"
-                  >
+                  <SoundKnobs resultId={result.id} />
+
+                  <div className="flex items-center gap-3 opacity-0 translate-y-1 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-250">
                     {[
                       { icon: Bookmark, label: "Save", action: () => {
                         if (!user) return;
@@ -646,16 +877,20 @@ export default function Home() {
           )}
         </AnimatePresence>
 
+        {/* Backdrop — only for utility panel, not for history */}
         <AnimatePresence>
-          {isFocused && (
+          {(showBackdrop) && (
             <motion.div
               className="fixed inset-0 z-20"
-              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+              style={{
+                background: showHistoryDropdown ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.6)",
+                backdropFilter: showHistoryDropdown ? "blur(2px)" : "blur(4px)",
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              onClick={() => setIsFocused(false)}
+              onClick={closeSearchUi}
             />
           )}
         </AnimatePresence>
@@ -663,6 +898,3 @@ export default function Home() {
     </>
   );
 }
-
-
-
