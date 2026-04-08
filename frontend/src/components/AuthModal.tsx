@@ -151,14 +151,13 @@ export default function AuthModal({ mode: initialMode, onClose }: Props) {
                   className="w-[2.5px] rounded-full"
                   style={{ background: "var(--accent)" }}
                   animate={{
-                    height: [h * 8, h * 18, h * 8],
-                    opacity: [0.4, 0.9, 0.4],
+                    height: [h * 10, h * 16, h * 10],
                   }}
                   transition={{
-                    duration: 1.5,
-                    delay: i * 0.1,
+                    duration: 2.2,
+                    delay: i * 0.12,
                     repeat: Infinity,
-                    ease: "easeInOut",
+                    ease: [0.4, 0, 0.2, 1],
                   }}
                 />
               ))}
