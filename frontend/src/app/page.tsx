@@ -125,6 +125,17 @@ export default function Home() {
   }, [file]);
 
   useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (file && results.length === 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [file, results.length]);
+
+  useEffect(() => {
     if (!isRecording) {
       setRecordingTime(0);
       return;
