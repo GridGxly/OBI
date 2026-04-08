@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { PlayerProvider } from "@/context/PlayerContext";
 import NowPlayingBar from "@/components/NowPlayingBar";
+import { Toaster } from "@/components/ui/Toaster";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -56,6 +57,7 @@ export default function RootLayout({
             </PlayerProvider>
           </AuthProvider>
         </div>
+        <Toaster />
       </body>
     </html>
   );
