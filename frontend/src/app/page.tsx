@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
 import VibeKnob from "@/components/VibeKnob";
 import ExampleSearches from "@/components/ExampleSearches";
+import SkeletonCard from "@/components/SkeletonCard";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -933,6 +934,23 @@ export default function Home() {
             </motion.div>
           )}
         </div>
+
+        {isScanning && !hasResults && (
+          <div className="w-full max-w-2xl flex flex-col gap-5 z-30 relative mt-10">
+            <div
+              className="flex items-center justify-between mb-2 pb-2"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+            >
+              <span className="font-data text-[10px] uppercase tracking-[3px]"
+                style={{ color: "rgba(255,255,255,0.08)" }}>Results</span>
+              <span className="font-data text-[10px] uppercase tracking-[3px]"
+                style={{ color: "rgba(255,255,255,0.08)" }}>Match %</span>
+            </div>
+            {[...Array(4)].map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
 
         <AnimatePresence>
           {hasResults && (
