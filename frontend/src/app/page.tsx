@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
-import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X } from "lucide-react";
+import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X, RefreshCw, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
 import SoundKnobs from "@/components/SoundKnobs";
@@ -24,6 +24,13 @@ type SearchResult = {
   tags?: string[];
   year?: number;
 };
+
+interface SearchSource {
+  type: "text" | "upload" | "recording" | "similar";
+  query?: string;
+  fileName?: string;
+  similarTo?: string;
+}
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -60,6 +67,47 @@ export default function Home() {
   const handleFilterReset = useCallback(() => {
     setFilters({ dust: 0, warmth: 0, crunch: 0 });
   }, []);
+
+  const [searchSource, setSearchSource] = useState<SearchSource | null>(null);
+  const [resultHistory, setResultHistory] = useState<Array<{
+    source: SearchSource;
+    results: SearchResult[];
+  }>>([]);
+
+  const handleFindSimilar = (sourceResult: SearchResult) => {
+    if (results.length > 0 && searchSource) {
+      setResultHistory(prev => {
+        const newHistory = [...prev, { source: searchSource, results }];
+        if (newHistory.length > 10) return newHistory.slice(newHistory.length - 10);
+        return newHistory;
+      });
+    }
+
+    const newSource: SearchSource = {
+      type: "similar",
+      similarTo: sourceResult.title,
+    };
+    setSearchSource(newSource);
+
+    setIsScanning(true);
+    setResults([]);
+
+    pendingResultsRef.current = [
+      { id: `s1-${Date.now()}`, title: `Similar: ${sourceResult.title} Variant A`, score: 94, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", bpm: sourceResult.bpm ? sourceResult.bpm + 2 : 90, tags: sourceResult.tags, year: 1975 },
+      { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
+      { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
+      { id: `s4-${Date.now()}`, title: "Forgotten Session Tape #12", score: 73, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", bpm: 102, tags: ["Session", "Tape"], year: 1981 },
+      { id: `s5-${Date.now()}`, title: "Lo-fi Gem - Basement Recording", score: 68, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", bpm: 76, tags: ["Lo-fi", "Basement"], year: 2003 },
+    ];
+  };
+
+  const handleBack = () => {
+    if (resultHistory.length === 0) return;
+    const prev = resultHistory[resultHistory.length - 1];
+    setSearchSource(prev.source);
+    setResults(prev.results);
+    setResultHistory(current => current.slice(0, current.length - 1));
+  };
 
   const MAX_HISTORY_ITEMS = 6;
   const searchHistoryKey = user ? `obi_search_history_${user.id}` : "obi_search_history_guest";
@@ -253,6 +301,13 @@ export default function Home() {
       return;
     }
 
+    setSearchSource({
+      type: file ? "upload" : "text",
+      query: normalizedQuery || undefined,
+      fileName: file?.name,
+    });
+    setResultHistory([]);
+
     setIsScanning(true);
     setError("");
     setResults([]);
@@ -271,8 +326,6 @@ export default function Home() {
       formData.append("warmth", String(filters.warmth));
       formData.append("crunch", String(filters.crunch));
 
-      // ✨ Real FastAPI integration proving all components! 
-      
       const uploadRes = await fetch("http://localhost:8000/search/?top_k=5", {
         method: "POST",
         body: formData,
@@ -282,9 +335,7 @@ export default function Home() {
       const pipelineData = await uploadRes.json();
       
       const realResults = [];
-      // Iterating over the Pydantic schema structure
       for (const neighbor of pipelineData.nearest_neighbors || []) {
-        // Hitting the new Display Search Results Endpoint!
         const metaRes = await fetch(`http://localhost:8000/search/results/${neighbor.id}`);
         if(metaRes.ok) {
            const meta = await metaRes.json();
@@ -883,12 +934,35 @@ export default function Home() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <div
-                className="flex items-center justify-between font-data text-[10px] uppercase mb-1 pb-2"
-                style={{ letterSpacing: "3px", color: "var(--text-tertiary)", borderBottom: "1px solid var(--border-default)" }}
-              >
-                <span>Results</span>
-                <span>Match %</span>
+              <div className="flex flex-col gap-4 mb-2">
+                {searchSource && (
+                  <div className="flex items-center justify-between font-data text-[10px] uppercase mb-1" style={{ letterSpacing: "3px", color: "var(--text-secondary)" }}>
+                    <div className="flex items-center gap-3">
+                      {resultHistory.length > 0 && (
+                        <button onClick={handleBack} className="flex items-center gap-1.5 transition-colors hover:text-white">
+                          <ArrowLeft size={12} />
+                          Back
+                        </button>
+                      )}
+                      <span className="opacity-60 flex items-center gap-2">
+                         {resultHistory.length > 0 && <span>/</span>}
+                         Depth: {resultHistory.length}
+                      </span>
+                    </div>
+                    <span>
+                       {searchSource.type === "similar" ? `Similar to: ${searchSource.similarTo}` :
+                        searchSource.type === "text" ? `Query: "${searchSource.query}"` :
+                        searchSource.type === "upload" ? `File: ${searchSource.fileName}` : ""}
+                    </span>
+                  </div>
+                )}
+                <div
+                  className="flex items-center justify-between font-data text-[10px] uppercase pb-2"
+                  style={{ letterSpacing: "3px", color: "var(--text-tertiary)", borderBottom: "1px solid var(--border-default)" }}
+                >
+                  <span>Results</span>
+                  <span>Match %</span>
+                </div>
               </div>
 
               <FiltersPanel
@@ -985,6 +1059,7 @@ export default function Home() {
 
                   <div className="flex items-center gap-3 opacity-100 md:opacity-0 md:translate-y-1 md:group-hover/card:opacity-100 md:group-hover/card:translate-y-0 transition-all duration-250">
                     {[
+                      { icon: RefreshCw, label: "Find Similar", action: () => handleFindSimilar(result) },
                       { icon: Bookmark, label: "Save", action: () => {
                         if (!user) {
                           showToast("Sign in to save sounds", "error");

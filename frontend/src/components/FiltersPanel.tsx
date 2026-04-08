@@ -17,7 +17,6 @@ export default function FiltersPanel({ values, onChange, onReset }: FiltersPanel
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 py-2 px-3 rounded-lg transition-all duration-200"
@@ -39,7 +38,6 @@ export default function FiltersPanel({ values, onChange, onReset }: FiltersPanel
         )}
       </button>
 
-      {/* Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
