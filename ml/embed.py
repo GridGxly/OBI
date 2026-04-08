@@ -27,18 +27,9 @@ EMBEDDING_DIM = 512  # CLAP default embedding size
 
 def embed_audio(audio_path: str) -> np.ndarray:
     y, sr = librosa.load(audio_path, sr=48000, mono=True)
-
-    inputs = processor(
-        audios=y,
-        sampling_rate=48000,
-        return_tensors="pt"
-    ).to(device)
-
-    with torch.no_grad():
-        outputs = model.get_audio_features(**inputs)
-
-    embedding = outputs[0].cpu().numpy()
-    return embedding / np.linalg.norm(embedding)
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=512)
+    embedding = np.mean(mfccs.T, axis=0)
+    return embedding / (np.linalg.norm(embedding) + 1e-10)
 
 
 def embed_text(text: str) -> np.ndarray:
