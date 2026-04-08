@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Play, Pause } from "lucide-react";
+import { usePlayer, Track } from "@/context/PlayerContext";
 
 interface AudioPlayerProps {
-  url: string;
+  track: Track;
+  playlist?: Track[];
 }
 
 function generateBars(count: number): number[] {
@@ -15,75 +17,57 @@ function generateBars(count: number): number[] {
   return bars;
 }
 
-export default function AudioPlayer({ url }: AudioPlayerProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+export default function AudioPlayer({ track, playlist }: AudioPlayerProps) {
+  const { currentTrack, isPlaying, progress, loadTrack, togglePlay, seek } = usePlayer();
   const [bars] = useState(() => generateBars(48));
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  const isCurrentActiveTrack = currentTrack?.id === track.id;
+  const isThisPlaying = isCurrentActiveTrack && isPlaying;
+  const currentProgress = isCurrentActiveTrack ? progress : 0;
 
-    const updateProgress = () => {
-      if (audio.duration) {
-        setProgress((audio.currentTime / audio.duration) * 100);
-      }
-    };
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-      setProgress(0);
-    };
-
-    audio.addEventListener("timeupdate", updateProgress);
-    audio.addEventListener("ended", handleEnded);
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateProgress);
-      audio.removeEventListener("ended", handleEnded);
-    };
-  }, []);
-
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+  const handleTogglePlay = () => {
+    if (isCurrentActiveTrack) {
+      togglePlay();
+    } else {
+      loadTrack(track, playlist);
     }
   };
 
   const handleBarClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!audioRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = ((e.clientX - rect.left) / rect.width) * 100;
-    audioRef.current.currentTime = (pct / 100) * audioRef.current.duration;
-    setProgress(pct);
+
+    if (isCurrentActiveTrack) {
+      seek(pct);
+    } else {
+      loadTrack(track, playlist);
+    }
   };
 
   return (
     <div
-      className="flex items-center gap-4 w-full p-3 rounded-[10px]"
+      className="flex items-center gap-4 w-full p-3 rounded-[10px] transition-colors duration-200"
       style={{
-        background: "rgba(0,0,0,0.3)",
-        border: "1px solid rgba(255,255,255,0.03)",
+        background: isCurrentActiveTrack ? "rgba(212,175,55,0.04)" : "rgba(0,0,0,0.3)",
+        border: isCurrentActiveTrack
+          ? "1px solid rgba(212,175,55,0.1)"
+          : "1px solid rgba(255,255,255,0.03)",
       }}
     >
-      <audio ref={audioRef} src={url} className="hidden" />
-
       <button
-        onClick={togglePlay}
+        onClick={handleTogglePlay}
         className="w-[30px] h-[30px] rounded-full flex shrink-0 items-center justify-center transition-all duration-200"
         style={{
-          background: isPlaying ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.06)",
-          border: isPlaying ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(255,255,255,0.08)",
-          color: isPlaying ? "var(--accent)" : "rgba(255,255,255,0.8)",
+          background: isThisPlaying ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.06)",
+          border: isThisPlaying ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(255,255,255,0.08)",
+          color: isThisPlaying ? "var(--accent)" : "rgba(255,255,255,0.8)",
         }}
       >
-        {isPlaying ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+        {isThisPlaying ? (
+          <Pause size={12} fill="currentColor" />
+        ) : (
+          <Play size={12} fill="currentColor" className="ml-0.5" />
+        )}
       </button>
 
       <svg
@@ -97,7 +81,7 @@ export default function AudioPlayer({ url }: AudioPlayerProps) {
           const barH = h * 20;
           const y = (24 - barH) / 2;
           const fillPct = (i / bars.length) * 100;
-          const isFilled = fillPct < progress;
+          const isFilled = fillPct < currentProgress;
           return (
             <rect
               key={i}
@@ -106,9 +90,10 @@ export default function AudioPlayer({ url }: AudioPlayerProps) {
               width={2}
               height={barH}
               rx={1}
-              fill={isFilled
-                ? "rgba(212,175,55,0.85)"
-                : `rgba(255,255,255,${0.06 + h * 0.12})`
+              fill={
+                isFilled
+                  ? "rgba(212,175,55,0.85)"
+                  : `rgba(255,255,255,${0.06 + h * 0.12})`
               }
               style={{ transition: "fill 0.15s" }}
             />
