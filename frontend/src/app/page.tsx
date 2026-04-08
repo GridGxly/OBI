@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
-import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X, RefreshCw, ArrowLeft } from "lucide-react";
+import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Play, History, X, RefreshCw, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
 import FiltersPanel from "@/components/FiltersPanel";
@@ -1054,10 +1054,23 @@ export default function Home() {
 
                   <AudioPlayer track={result} playlist={results} />
 
-                  <div className="flex items-center gap-3 opacity-100 md:opacity-0 md:translate-y-1 md:group-hover/card:opacity-100 md:group-hover/card:translate-y-0 transition-all duration-250">
-                    {[
-                      { icon: RefreshCw, label: "Find Similar", action: () => handleFindSimilar(result) },
-                      { icon: Bookmark, label: "Save", action: () => {
+                  <div
+                    className="flex items-center gap-4 pt-3 mt-1 opacity-100 md:opacity-0 md:group-hover/card:opacity-100 transition-opacity duration-200"
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+                  >
+                    <button
+                      onClick={() => handleFindSimilar(result)}
+                      className="font-data text-[9px] uppercase flex items-center gap-1.5 transition-colors duration-150"
+                      style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                    >
+                      <RefreshCw size={11} />
+                      Find Similar
+                    </button>
+
+                    <button
+                      onClick={() => {
                         if (!user) {
                           showToast("Sign in to save sounds", "error");
                           return;
@@ -1069,40 +1082,16 @@ export default function Home() {
                           year: result.year,
                           matchPercent: result.score,
                         });
-                        showToast("Sound saved to your collection", "success");
-                      }},
-                      { icon: Link2, label: "Share", action: () => {
-                        const shareData = { title: result.title, text: `Check out this sound: ${result.title}`, url: result.url };
-                        if (navigator.share) {
-                          navigator.share(shareData).catch(() => {});
-                        } else {
-                          navigator.clipboard.writeText(result.url);
-                        }
-                        showToast("Link copied to clipboard", "success");
-                      }},
-                      { icon: Download, label: "Download", action: () => {
-                        const a = document.createElement("a");
-                        a.href = result.url;
-                        a.download = `${result.title.replace(/[^a-zA-Z0-9]/g, "_")}.mp3`;
-                        a.target = "_blank";
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        showToast("Download started", "info");
-                      }},
-                    ].map(({ icon: Icon, label, action }) => (
-                      <button
-                        key={label}
-                        onClick={action}
-                        className="font-data text-[9px] uppercase flex items-center gap-1 transition-colors duration-200"
-                        style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                      >
-                        <Icon size={12} />
-                        {label}
-                      </button>
-                    ))}
+                        showToast("Sound saved", "success");
+                      }}
+                      className="font-data text-[9px] uppercase flex items-center gap-1.5 transition-colors duration-150"
+                      style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                    >
+                      <Bookmark size={11} />
+                      Save
+                    </button>
                   </div>
                 </div>
               ))}
