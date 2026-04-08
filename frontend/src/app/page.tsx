@@ -973,29 +973,26 @@ export default function Home() {
               {results.map((result, i) => (
                 <div
                   key={result.id}
-                  className="group/card flex flex-col gap-2 rounded-[16px] relative"
+                  className="group/card flex flex-col gap-2 rounded-[14px] relative transition-all duration-200"
                   style={{
                     padding: "20px 22px",
-                    background: "rgba(255,255,255,0.015)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    background: "var(--bg-surface)",
+                    border: "1px solid var(--border-default)",
                     animation: `slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.1}s both`,
-                    transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
                   }}
                   onMouseEnter={(e) => {
-                    const el = e.currentTarget;
-                    el.style.background = "linear-gradient(135deg, rgba(212,175,55,0.04), rgba(255,255,255,0.02))";
-                    el.style.borderColor = "rgba(212,175,55,0.15)";
-                    el.style.transform = "translateY(-3px) scale(1.005)";
-                    el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,175,55,0.08)";
+                    e.currentTarget.style.borderColor = "rgba(212,175,55,0.12)";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.025)";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)";
 
                     if (!isTouchDevice) startPreview(result.url);
                   }}
                   onMouseLeave={(e) => {
-                    const el = e.currentTarget;
-                    el.style.background = "rgba(255,255,255,0.015)";
-                    el.style.borderColor = "rgba(255,255,255,0.05)";
-                    el.style.transform = "translateY(0) scale(1)";
-                    el.style.boxShadow = "none";
+                    e.currentTarget.style.borderColor = "var(--border-default)";
+                    e.currentTarget.style.background = "var(--bg-surface)";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
 
                     stopPreview();
                   }}
@@ -1010,23 +1007,23 @@ export default function Home() {
                       {result.title}
                     </span>
                     <div
-                      className="flex items-baseline gap-0.5 rounded-[10px] px-3.5 py-2"
+                      className="flex items-baseline gap-0.5 rounded-[10px] px-3 py-1.5 shrink-0"
                       style={{
                         background: result.score >= 90
-                          ? "linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.06))"
-                          : "rgba(255,255,255,0.03)",
+                          ? "rgba(212,175,55,0.08)"
+                          : "rgba(255,255,255,0.025)",
                         border: result.score >= 90
-                          ? "1px solid rgba(212,175,55,0.25)"
+                          ? "1px solid rgba(212,175,55,0.2)"
                           : "1px solid rgba(255,255,255,0.05)",
                       }}
                     >
                       <span
-                        className="font-data text-xl font-extrabold tabular-nums"
+                        className="font-data text-lg font-extrabold tabular-nums leading-none"
                         style={{ color: result.score >= 90 ? "var(--accent)" : "var(--text-secondary)" }}
                       >
                         {result.score}
                       </span>
-                      <span className="font-data text-[9px]" style={{ color: "var(--text-tertiary)" }}>%</span>
+                      <span className="font-data text-[8px]" style={{ color: "var(--text-tertiary)" }}>%</span>
                     </div>
                   </div>
 
