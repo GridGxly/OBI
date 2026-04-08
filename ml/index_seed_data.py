@@ -13,15 +13,15 @@ import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
-from embed import embed, EMBEDDING_DIM
+from embed import embed_audio, EMBEDDING_DIM
 
 
 SEED_FOLDER = "seed_data"
-COLLECTION_NAME = "audio_samples"
+COLLECTION_NAME = "beats"
 
 
 def main():
-    client = QdrantClient(path="qdrant_storage")
+    client = QdrantClient(url="http://localhost:6333")
 
     # Create collection if it doesn't exist
     client.recreate_collection(
@@ -41,7 +41,7 @@ def main():
         path = os.path.join(SEED_FOLDER, filename)
 
         print(f"Embedding {filename}...")
-        vector = embed(path)
+        vector = embed_audio(path)
 
         point = PointStruct(
             id=str(uuid.uuid4()),

@@ -8,7 +8,7 @@ from qdrant_client.http import models as qmodels
 
 QDRANT_URL = "http://localhost:6333"
 COLLECTION_NAME = "beats"
-VECTOR_SIZE = 128
+VECTOR_SIZE = 512
 
 client = QdrantClient(url=QDRANT_URL)
 
