@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("obi_user");
+    localStorage.removeItem("obi_token");
     setUser(null);
   };
 

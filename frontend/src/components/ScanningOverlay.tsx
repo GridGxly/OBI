@@ -42,7 +42,7 @@ export default function ScanningOverlay({ onComplete }: ScanningOverlayProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
       style={{
         background: "radial-gradient(ellipse at center, rgba(20,16,8,0.97), rgba(5,5,5,0.99) 70%)",
         opacity: exiting ? 0 : 1,
@@ -118,7 +118,7 @@ export default function ScanningOverlay({ onComplete }: ScanningOverlayProps) {
       </div>
 
       <div
-        className="absolute font-data text-[11px] uppercase tracking-[5px]"
+        className="absolute font-data text-[11px] uppercase tracking-[3px] sm:tracking-[5px]"
         style={{
           top: "calc(50% + 140px)",
           color: "var(--accent-dim)",

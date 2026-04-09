@@ -30,6 +30,7 @@ export default function NowPlayingBar() {
     duration,
     volume,
     audioRef,
+    previewAudioRef,
     togglePlay,
     seek,
     setVolume,
@@ -172,6 +173,7 @@ export default function NowPlayingBar() {
   return (
     <>
       <audio ref={audioRef} src={currentTrack?.url} className="hidden" preload="auto" />
+      <audio ref={previewAudioRef} className="hidden" preload="none" />
 
       <AnimatePresence>
         {currentTrack && (
@@ -197,28 +199,39 @@ export default function NowPlayingBar() {
               />
             </div>
 
-            <div className="flex items-center justify-between px-4 md:px-6 py-3" style={{ height: "72px" }}>
-              <div className="flex items-center gap-3 w-[28%] min-w-[140px]">
+            <div className="flex items-center justify-between px-4 md:px-6 py-3 h-[72px] sm:h-[72px]">
+              <div className="flex items-center gap-3 w-[28%] min-w-[100px] sm:min-w-[140px]">
                 <div
-                  className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center"
+                  className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center overflow-hidden relative"
                   style={{
-                    background: "linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04))",
-                    border: "1px solid rgba(212,175,55,0.15)",
+                    background: "radial-gradient(circle at 30% 30%, rgba(60,60,60,1) 0%, rgba(20,20,20,1) 60%, rgba(10,10,10,1) 100%)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    boxShadow: isPlaying ? "0 0 12px rgba(212,175,55,0.08)" : "none",
+                    animation: isPlaying ? "vinylSpin 3s linear infinite" : "none",
+                    transition: "box-shadow 0.3s ease",
                   }}
                 >
-                  <div className="flex items-center gap-[2px]">
-                    {[0.4, 0.7, 1, 0.6, 0.3].map((h, i) => (
-                      <div
-                        key={i}
-                        className="w-[2px] rounded-full"
-                        style={{
-                          height: `${h * 16}px`,
-                          background: isPlaying ? "var(--accent)" : "rgba(212,175,55,0.4)",
-                          animation: isPlaying ? `orbBar 0.6s ease-in-out ${i * 0.08}s infinite alternate` : "none",
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <div
+                    className="absolute w-[30px] h-[30px] rounded-full"
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.04)",
+                    }}
+                  />
+                  <div
+                    className="absolute w-[20px] h-[20px] rounded-full"
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.03)",
+                    }}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{
+                      background: isPlaying
+                        ? "radial-gradient(circle, var(--accent) 0%, rgba(180,148,40,0.8) 100%)"
+                        : "radial-gradient(circle, rgba(80,80,80,1) 0%, rgba(50,50,50,1) 100%)",
+                      transition: "background 0.3s ease",
+                    }}
+                  />
                 </div>
 
                 <div className="flex flex-col overflow-hidden">
@@ -245,7 +258,7 @@ export default function NowPlayingBar() {
                   <button
                     onClick={skipPrev}
                     disabled={!canSkipPrev}
-                    className="transition-colors duration-150 disabled:opacity-20"
+                    className="p-2 transition-colors duration-150 disabled:opacity-20"
                     style={{ color: "rgba(255,255,255,0.4)" }}
                     onMouseEnter={(e) => { if (canSkipPrev) e.currentTarget.style.color = "rgba(255,255,255,0.9)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
@@ -255,7 +268,7 @@ export default function NowPlayingBar() {
 
                   <button
                     onClick={togglePlay}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200"
+                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200"
                     style={{
                       background: isPlaying
                         ? "rgba(212,175,55,0.15)"
@@ -276,7 +289,7 @@ export default function NowPlayingBar() {
                   <button
                     onClick={skipNext}
                     disabled={!canSkipNext}
-                    className="transition-colors duration-150 disabled:opacity-20"
+                    className="p-2 transition-colors duration-150 disabled:opacity-20"
                     style={{ color: "rgba(255,255,255,0.4)" }}
                     onMouseEnter={(e) => { if (canSkipNext) e.currentTarget.style.color = "rgba(255,255,255,0.9)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
@@ -285,7 +298,7 @@ export default function NowPlayingBar() {
                   </button>
                 </div>
 
-                <div className="w-full flex items-center gap-2">
+                <div className="w-full flex items-center gap-2 hidden sm:flex">
                   <span className="font-data text-[9px] tabular-nums text-white/25 w-8 text-right shrink-0">
                     {formatTime(currentTime)}
                   </span>
@@ -327,7 +340,7 @@ export default function NowPlayingBar() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 w-[28%] min-w-[140px]">
+              <div className="flex items-center justify-end gap-3 w-[28%] min-w-0 sm:min-w-[140px]">
                 <div className="hidden md:flex items-center gap-2">
                   <button
                     onClick={handleMuteToggle}
@@ -356,7 +369,7 @@ export default function NowPlayingBar() {
 
                 <button
                   onClick={dismiss}
-                  className="p-1.5 rounded-md transition-colors duration-150"
+                  className="p-2 rounded-md transition-colors duration-150"
                   style={{ color: "rgba(255,255,255,0.2)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.6)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}

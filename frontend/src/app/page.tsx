@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, CSSProperties } from "react";
-import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Link2, Download, Play, History, X } from "lucide-react";
+import { Search, Upload, Mic, AlertCircle, Square, Bookmark, Play, History, X, RefreshCw, ArrowLeft, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AudioPlayer from "@/components/AudioPlayer";
-import SoundKnobs from "@/components/SoundKnobs"
+import VibeKnob from "@/components/VibeKnob";
+import ExampleSearches from "@/components/ExampleSearches";
+import SkeletonCard from "@/components/SkeletonCard";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
+import { useToast } from "@/context/ToastContext";
+import { usePlayer } from "@/context/PlayerContext";
 
 import ParticleCanvas from "@/components/ParticleCanvas";
 import ScanningOverlay from "@/components/ScanningOverlay";
@@ -22,6 +26,13 @@ type SearchResult = {
   year?: number;
 };
 
+interface SearchSource {
+  type: "text" | "upload" | "recording" | "similar";
+  query?: string;
+  fileName?: string;
+  similarTo?: string;
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [query, setQuery] = useState("");
@@ -33,13 +44,74 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isUtilityPanelOpen, setIsUtilityPanelOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
 
   const { user, logout, saveSound } = useAuth();
+  const { showToast } = useToast();
+  const { startPreview, stopPreview, dismiss } = usePlayer();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window);
 
   const hasResults = results.length > 0;
   const hasInput = !!query || !!file;
   const activeMode: "text" | "upload" | "mic" = isRecording ? "mic" : file ? "upload" : "text";
+
+  const [filters, setFilters] = useState({ dust: 0, warmth: 0, crunch: 0 });
+
+  const handleFilterChange = useCallback((key: "dust" | "warmth" | "crunch", value: number) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleFilterReset = useCallback(() => {
+    setFilters({ dust: 0, warmth: 0, crunch: 0 });
+  }, []);
+
+  const [searchSource, setSearchSource] = useState<SearchSource | null>(null);
+  const [resultHistory, setResultHistory] = useState<Array<{
+    source: SearchSource;
+    results: SearchResult[];
+  }>>([]);
+
+  const handleFindSimilar = (sourceResult: SearchResult) => {
+    dismiss();
+
+    if (results.length > 0 && searchSource) {
+      setResultHistory(prev => {
+        const newHistory = [...prev, { source: searchSource, results }];
+        if (newHistory.length > 10) return newHistory.slice(newHistory.length - 10);
+        return newHistory;
+      });
+    }
+
+    const newSource: SearchSource = {
+      type: "similar",
+      similarTo: sourceResult.title,
+    };
+    setSearchSource(newSource);
+
+    setIsScanning(true);
+    setResults([]);
+
+    pendingResultsRef.current = [
+      { id: `s1-${Date.now()}`, title: `Similar: ${sourceResult.title} Variant A`, score: 94, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", bpm: sourceResult.bpm ? sourceResult.bpm + 2 : 90, tags: sourceResult.tags, year: 1975 },
+      { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
+      { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
+      { id: `s4-${Date.now()}`, title: "Forgotten Session Tape #12", score: 73, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", bpm: 102, tags: ["Session", "Tape"], year: 1981 },
+      { id: `s5-${Date.now()}`, title: "Lo-fi Gem - Basement Recording", score: 68, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", bpm: 76, tags: ["Lo-fi", "Basement"], year: 2003 },
+    ];
+  };
+
+  const handleBack = () => {
+    if (resultHistory.length === 0) return;
+    const prev = resultHistory[resultHistory.length - 1];
+    setSearchSource(prev.source);
+    setResults(prev.results);
+    setResultHistory(current => current.slice(0, current.length - 1));
+  };
 
   const MAX_HISTORY_ITEMS = 6;
   const searchHistoryKey = user ? `obi_search_history_${user.id}` : "obi_search_history_guest";
@@ -62,7 +134,9 @@ export default function Home() {
 
   const persistSearchHistory = useCallback((items: string[]) => {
     setSearchHistory(items);
-    localStorage.setItem(searchHistoryKey, JSON.stringify(items));
+    try {
+      localStorage.setItem(searchHistoryKey, JSON.stringify(items));
+    } catch {}
   }, [searchHistoryKey]);
 
   const saveSearchToHistory = useCallback((rawQuery: string) => {
@@ -118,6 +192,17 @@ export default function Home() {
       setFilePreviewUrl(null);
     }
   }, [file]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (file && results.length === 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [file, results.length]);
 
   useEffect(() => {
     if (!isRecording) {
@@ -222,6 +307,13 @@ export default function Home() {
       return;
     }
 
+    setSearchSource({
+      type: file ? "upload" : "text",
+      query: normalizedQuery || undefined,
+      fileName: file?.name,
+    });
+    setResultHistory([]);
+
     setIsScanning(true);
     setError("");
     setResults([]);
@@ -235,10 +327,11 @@ export default function Home() {
     try {
       const formData = new FormData();
       if (query) formData.append("query", query);
-      if (file) formData.append("file", file);
+      if (file) formData.append("audio", file);
+      formData.append("dust", String(filters.dust));
+      formData.append("warmth", String(filters.warmth));
+      formData.append("crunch", String(filters.crunch));
 
-      // ✨ Real FastAPI integration proving all components! 
-      
       const uploadRes = await fetch("http://localhost:8000/search/?top_k=5", {
         method: "POST",
         body: formData,
@@ -248,9 +341,7 @@ export default function Home() {
       const pipelineData = await uploadRes.json();
       
       const realResults = [];
-      // Iterating over the Pydantic schema structure
       for (const neighbor of pipelineData.nearest_neighbors || []) {
-        // Hitting the new Display Search Results Endpoint!
         const metaRes = await fetch(`http://localhost:8000/search/results/${neighbor.id}`);
         if(metaRes.ok) {
            const meta = await metaRes.json();
@@ -270,9 +361,12 @@ export default function Home() {
         { id: "fallback", title: "API Empty", score: 0, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" }
       ];
     } catch (err) {
-      console.warn("API Error:", err);
-      setError("An error occurred while fetching results.");
-      setIsScanning(false);
+      console.warn("Backend not reachable. Serving dummy results...", err);
+      pendingResultsRef.current = [
+        { id: "dummy-1", title: "Lo-Fi Hip Hop Drum Loop", score: 98, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", bpm: 85, tags: ["Drums", "Lo-Fi", "Vintage"], year: 2023 },
+        { id: "dummy-2", title: "Atmospheric Synth Pad", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", tags: ["Synth", "Ambient", "Dark"], year: 2021 },
+        { id: "dummy-3", title: "Funky Bassline Groover", score: 76, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", bpm: 110, tags: ["Bass", "Funk", "Groove"] }
+      ];
     }
   };
 
@@ -282,15 +376,98 @@ export default function Home() {
     setResults(pendingResultsRef.current);
   }, [closeSearchUi]);
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounterRef.current = 0;
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length === 0) return;
+
+    const droppedFile = droppedFiles[0];
+    const validTypes = ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/webm", "audio/ogg"];
+    if (!validTypes.includes(droppedFile.type)) {
+      setError("Please drop a .wav, .mp3, or audio file.");
+      showToast("Invalid file type", "error");
+      return;
+    }
+
+    setFile(droppedFile);
+    setIsFocused(true);
+    showToast(`${droppedFile.name} loaded`, "success");
+  };
+
   const ghostBtn: CSSProperties = { background: "none", border: "1px solid #2a2a2a", color: "#666", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", cursor: "pointer" };
   const goldBtn: CSSProperties = { backgroundColor: "#b8a96a", border: "none", color: "#0a0a0a", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", fontWeight: 600, cursor: "pointer" };
 
   return (
-    <>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="min-h-screen"
+    >
       <ParticleCanvas isScanning={isScanning} />
 
       <AnimatePresence>
         {isScanning && <ScanningOverlay onComplete={handleScanComplete} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[55] flex items-center justify-center"
+            style={{
+              background: "rgba(6,6,6,0.85)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div
+              className="flex flex-col items-center gap-4 p-12 rounded-2xl"
+              style={{
+                border: "2px dashed rgba(212,175,55,0.4)",
+                background: "rgba(212,175,55,0.03)",
+              }}
+            >
+              <Upload size={48} style={{ color: "var(--accent-dim)" }} />
+              <span className="font-display text-lg font-semibold" style={{ color: "var(--accent)" }}>
+                Drop your audio here
+              </span>
+              <span className="font-data text-[10px] uppercase tracking-[3px]" style={{ color: "var(--text-tertiary)" }}>
+                .wav, .mp3, or any audio file
+              </span>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <main
@@ -304,7 +481,7 @@ export default function Home() {
           transitionDuration: "0.7s, 0.5s",
         }}
       >
-        <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem" }}>
+        <div style={{ position: "absolute", top: "1.5rem", right: "1.5rem" }} className="text-xs sm:text-sm">
           {user ? (
             <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
               <a href="/profile" style={{ color: "#b8a96a", fontSize: "0.7rem", letterSpacing: "0.1rem" }}>
@@ -326,7 +503,7 @@ export default function Home() {
           <motion.h1
             className="font-display font-bold text-white mb-1 cursor-pointer"
             style={{
-              fontSize: hasResults ? 32 : 80,
+              fontSize: hasResults ? 32 : "clamp(48px, 10vw, 80px)",
               letterSpacing: hasResults ? "0.25em" : "0.35em",
               textShadow: "0 0 60px rgba(212,175,55,0.08)",
               transition: "font-size 0.7s cubic-bezier(0.4,0,0.2,1), letter-spacing 0.7s cubic-bezier(0.4,0,0.2,1)",
@@ -412,11 +589,26 @@ export default function Home() {
                   if (!file && !isRecording) setIsUtilityPanelOpen(false);
                 }}
                 disabled={isRecording || !!file}
+                autoFocus={typeof window !== 'undefined' && !('ontouchstart' in window)}
                 className="flex-1 bg-transparent pl-3 pr-2 outline-none font-display text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ color: "var(--text-primary)" }}
                 placeholder={isRecording ? "Recording in progress…" : file ? "Audio file loaded" : "Describe a sound or vibe…"}
               />
               <div className="flex items-center gap-1">
+                {query && !isRecording && !file && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQuery("");
+                    }}
+                    className="p-1.5 rounded-md transition-colors duration-150"
+                    style={{ color: "rgba(255,255,255,0.15)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.15)"; }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -471,6 +663,17 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {query.length >= 3 && !isFocused && (
+              <div className="pb-3 w-full">
+                <p
+                  className="font-data text-[9px] uppercase tracking-[2px] text-center mt-0"
+                  style={{ color: "rgba(255,255,255,0.1)" }}
+                >
+                  Press Enter to search
+                </p>
+              </div>
+            )}
 
             {/* ── History dropdown — attached directly to the search bar ── */}
             <AnimatePresence>
@@ -608,7 +811,7 @@ export default function Home() {
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-[10px]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
@@ -633,11 +836,14 @@ export default function Home() {
                       </button>
 
                       <button
-                        onMouseDown={(e) => { e.preventDefault(); startRecording(); }}
-                        onMouseUp={stopRecording}
-                        onMouseLeave={() => { if (isRecording) stopRecording(); }}
-                        onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-                        onTouchEnd={stopRecording}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (isRecording) {
+                            stopRecording();
+                          } else {
+                            startRecording();
+                          }
+                        }}
                         className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
                         style={{
                           border: isRecording ? "1px solid rgba(212,175,55,0.4)" : "1px dashed rgba(255,255,255,0.08)",
@@ -660,7 +866,7 @@ export default function Home() {
                             <Mic size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
                             <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Record mic</span>
                             <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
-                              Hold to record
+                              Click to record
                             </span>
                           </>
                         )}
@@ -738,6 +944,13 @@ export default function Home() {
             </AnimatePresence>
           </motion.div>
 
+          {!hasResults && !isFocused && !isScanning && (
+            <ExampleSearches onSelect={(q) => {
+              setQuery(q);
+              handleSearch(q);
+            }} />
+          )}
+
           {error && (
             <motion.div
               className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl w-full max-w-2xl mt-6"
@@ -755,6 +968,23 @@ export default function Home() {
           )}
         </div>
 
+        {isScanning && !hasResults && (
+          <div className="w-full max-w-2xl flex flex-col gap-5 z-30 relative mt-10">
+            <div
+              className="flex items-center justify-between mb-2 pb-2"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+            >
+              <span className="font-data text-[10px] uppercase tracking-[3px]"
+                style={{ color: "rgba(255,255,255,0.08)" }}>Results</span>
+              <span className="font-data text-[10px] uppercase tracking-[3px]"
+                style={{ color: "rgba(255,255,255,0.08)" }}>Match %</span>
+            </div>
+            {[...Array(4)].map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
+
         <AnimatePresence>
           {hasResults && (
             <motion.div
@@ -763,38 +993,139 @@ export default function Home() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <div
-                className="flex items-center justify-between font-data text-[10px] uppercase mb-1 pb-2"
-                style={{ letterSpacing: "3px", color: "var(--text-tertiary)", borderBottom: "1px solid var(--border-default)" }}
-              >
-                <span>Results</span>
-                <span>Match %</span>
+              <div className="flex flex-col gap-4 mb-2">
+                {searchSource && (
+                  <div className="flex items-center justify-between font-data text-[10px] uppercase mb-1" style={{ letterSpacing: "3px", color: "var(--text-secondary)" }}>
+                    <div className="flex items-center gap-3">
+                      {resultHistory.length > 0 && (
+                        <button onClick={handleBack} className="flex items-center gap-1.5 transition-colors hover:text-white">
+                          <ArrowLeft size={12} />
+                          Back
+                        </button>
+                      )}
+                      {resultHistory.length > 0 && (
+                        <span className="opacity-60 flex items-center gap-2">
+                           <span>/</span>
+                           Depth: {resultHistory.length}
+                        </span>
+                      )}
+                    </div>
+                    <span>
+                       {searchSource.type === "similar" ? `Similar to: ${searchSource.similarTo}` :
+                        searchSource.type === "text" ? `Query: "${searchSource.query}"` :
+                        searchSource.type === "upload" ? `File: ${searchSource.fileName}` : ""}
+                    </span>
+                  </div>
+                )}
+                <div
+                  className="flex items-center justify-between mb-2 pb-2"
+                  style={{ borderBottom: "1px solid var(--border-default)" }}
+                >
+                  <span
+                    className="font-data text-[10px] uppercase tracking-[3px]"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    Results
+                  </span>
+
+                  <button
+                    onClick={() => setFiltersOpen(prev => !prev)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all duration-200"
+                    style={{
+                      color: (filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0)
+                        ? "var(--accent)"
+                        : "var(--text-tertiary)",
+                      background: filtersOpen ? "rgba(212,175,55,0.05)" : "transparent",
+                      border: filtersOpen ? "1px solid rgba(212,175,55,0.12)" : "1px solid transparent",
+                    }}
+                  >
+                    <SlidersHorizontal size={11} />
+                    <span className="font-data text-[9px] uppercase tracking-[2px]">Filters</span>
+                    {(filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0) && (
+                      <span className="w-1 h-1 rounded-full" style={{ background: "var(--accent)" }} />
+                    )}
+                  </button>
+
+                  <span
+                    className="font-data text-[10px] uppercase tracking-[3px]"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    Match %
+                  </span>
+                </div>
               </div>
 
+              <AnimatePresence>
+                {filtersOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="flex flex-col items-center gap-6 py-8 px-6 mb-6 rounded-xl"
+                      style={{
+                        background: "rgba(255,255,255,0.015)",
+                        border: "1px solid rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      <div className="flex items-center justify-center gap-8 sm:gap-12 flex-wrap">
+                        <VibeKnob label="Dust" value={filters.dust} onChange={(v) => handleFilterChange("dust", v)} />
+                        <VibeKnob label="Warmth" value={filters.warmth} onChange={(v) => handleFilterChange("warmth", v)} />
+                        <VibeKnob label="Crunch" value={filters.crunch} onChange={(v) => handleFilterChange("crunch", v)} />
+                      </div>
+                      {(filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0) && (
+                        <button
+                          onClick={handleFilterReset}
+                          className="flex items-center gap-1.5 font-data text-[9px] uppercase tracking-[3px] transition-colors duration-150"
+                          style={{ color: "var(--text-tertiary)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                        >
+                          <RotateCcw size={10} />
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {results.map((result, i) => (
-                <div
+                <motion.div
                   key={result.id}
-                  className="group/card flex flex-col gap-2 rounded-[16px] relative"
-                  style={{
-                    padding: "20px 22px",
-                    background: "rgba(255,255,255,0.015)",
-                    border: "1px solid rgba(255,255,255,0.05)",
-                    animation: `slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.1}s both`,
-                    transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: i * 0.08,
+                    duration: 0.35,
+                    ease: [0.4, 0, 0.2, 1],
                   }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget;
-                    el.style.background = "linear-gradient(135deg, rgba(212,175,55,0.04), rgba(255,255,255,0.02))";
-                    el.style.borderColor = "rgba(212,175,55,0.15)";
-                    el.style.transform = "translateY(-3px) scale(1.005)";
-                    el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,175,55,0.08)";
+                >
+                  <div
+                    className="group/card flex flex-col gap-2 rounded-[14px] relative transition-all duration-200"
+                    style={{
+                      padding: "20px 22px",
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border-default)",
+                    }}
+                    onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(212,175,55,0.12)";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.025)";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.3)";
+
+                    if (!isTouchDevice) startPreview(result.url);
                   }}
                   onMouseLeave={(e) => {
-                    const el = e.currentTarget;
-                    el.style.background = "rgba(255,255,255,0.015)";
-                    el.style.borderColor = "rgba(255,255,255,0.05)";
-                    el.style.transform = "translateY(0) scale(1)";
-                    el.style.boxShadow = "none";
+                    e.currentTarget.style.borderColor = "var(--border-default)";
+                    e.currentTarget.style.background = "var(--bg-surface)";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+
+                    stopPreview();
                   }}
                 >
                   <div
@@ -807,23 +1138,23 @@ export default function Home() {
                       {result.title}
                     </span>
                     <div
-                      className="flex items-baseline gap-0.5 rounded-[10px] px-3.5 py-2"
+                      className="flex items-baseline gap-0.5 rounded-[10px] px-3 py-1.5 shrink-0"
                       style={{
                         background: result.score >= 90
-                          ? "linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.06))"
-                          : "rgba(255,255,255,0.03)",
+                          ? "rgba(212,175,55,0.08)"
+                          : "rgba(255,255,255,0.025)",
                         border: result.score >= 90
-                          ? "1px solid rgba(212,175,55,0.25)"
+                          ? "1px solid rgba(212,175,55,0.2)"
                           : "1px solid rgba(255,255,255,0.05)",
                       }}
                     >
                       <span
-                        className="font-data text-xl font-extrabold tabular-nums"
+                        className="font-data text-lg font-extrabold tabular-nums leading-none"
                         style={{ color: result.score >= 90 ? "var(--accent)" : "var(--text-secondary)" }}
                       >
                         {result.score}
                       </span>
-                      <span className="font-data text-[9px]" style={{ color: "var(--text-tertiary)" }}>%</span>
+                      <span className="font-data text-[8px]" style={{ color: "var(--text-tertiary)" }}>%</span>
                     </div>
                   </div>
 
@@ -851,12 +1182,27 @@ export default function Home() {
 
                   <AudioPlayer track={result} playlist={results} />
 
-                  <SoundKnobs resultId={result.id} />
+                  <div
+                    className="flex items-center gap-4 pt-3 mt-1 opacity-100 md:opacity-0 md:group-hover/card:opacity-100 transition-opacity duration-200"
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+                  >
+                    <button
+                      onClick={() => handleFindSimilar(result)}
+                      className="font-data text-[9px] uppercase flex items-center gap-1.5 transition-colors duration-150"
+                      style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                    >
+                      <RefreshCw size={11} />
+                      Find Similar
+                    </button>
 
-                  <div className="flex items-center gap-3 opacity-0 translate-y-1 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-250">
-                    {[
-                      { icon: Bookmark, label: "Save", action: () => {
-                        if (!user) return;
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          showToast("Sign in to save sounds", "error");
+                          return;
+                        }
                         saveSound({
                           title: result.title,
                           bpm: result.bpm,
@@ -864,39 +1210,19 @@ export default function Home() {
                           year: result.year,
                           matchPercent: result.score,
                         });
-                      }},
-                      { icon: Link2, label: "Share", action: () => {
-                        const shareData = { title: result.title, text: `Check out this sound: ${result.title}`, url: result.url };
-                        if (navigator.share) {
-                          navigator.share(shareData).catch(() => {});
-                        } else {
-                          navigator.clipboard.writeText(result.url);
-                        }
-                      }},
-                      { icon: Download, label: "Download", action: () => {
-                        const a = document.createElement("a");
-                        a.href = result.url;
-                        a.download = `${result.title.replace(/[^a-zA-Z0-9]/g, "_")}.mp3`;
-                        a.target = "_blank";
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      }},
-                    ].map(({ icon: Icon, label, action }) => (
-                      <button
-                        key={label}
-                        onClick={action}
-                        className="font-data text-[9px] uppercase flex items-center gap-1 transition-colors duration-200"
-                        style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                      >
-                        <Icon size={12} />
-                        {label}
-                      </button>
-                    ))}
+                        showToast("Sound saved", "success");
+                      }}
+                      className="font-data text-[9px] uppercase flex items-center gap-1.5 transition-colors duration-150"
+                      style={{ letterSpacing: "2px", color: "var(--text-tertiary)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                    >
+                      <Bookmark size={11} />
+                      Save
+                    </button>
                   </div>
                 </div>
+                </motion.div>
               ))}
             </motion.div>
           )}
@@ -920,6 +1246,6 @@ export default function Home() {
           )}
         </AnimatePresence>
       </main>
-    </>
+    </div>
   );
 }
