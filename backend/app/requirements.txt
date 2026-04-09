@@ -8,3 +8,6 @@ torch
 torchaudio
 transformers
 librosa
+datasets
+pandas
+torchcodec

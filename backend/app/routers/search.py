@@ -1,46 +1,79 @@
 # routers/search.py
 
-from fastapi import APIRouter, UploadFile, File, Query
+from fastapi import APIRouter, UploadFile, File, Query, Form
+from typing import Optional
 
 from services.storage import save_audio_file
 from services.embeddings import get_embedding
 from services.qdrant_service import search_neighbors
+import os
+import sys
 
 router = APIRouter()
 
-
 @router.post("/")
 async def search_audio(
-    file: UploadFile = File(...),
+    audio: Optional[UploadFile] = File(None),
+    query: Optional[str] = Form(None),
+    dust: Optional[int] = Form(0),
+    warmth: Optional[int] = Form(0),
+    crunch: Optional[int] = Form(0),
     top_k: int = Query(5, ge=1, le=50),
 ):
-    # 1) Save uploaded file (optional, but useful for debugging)
-    saved_path = await save_audio_file(file)
-
-    # 2) Get embedding & Search Qdrant (Will gracefully mock if ML services offline)
     try:
-        embedding = await get_embedding(saved_path)
+        if audio and audio.filename:
+            saved_path = await save_audio_file(audio)
+            embedding = await get_embedding(saved_path)
+        elif query:
+            # Hook text models organically
+            sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../ml")))
+            from embed import embed_text
+            embedding = embed_text(query).tolist()
+            saved_path = f"TEXT_QUERY: {query}"
+        else:
+            return {"nearest_neighbors": []}
+
         neighbors = search_neighbors(embedding, top_k=top_k)
         print(f"ML Search success! Found {len(neighbors)} neighbors.")
+        
+        return {
+            "query_path": saved_path,
+            "nearest_neighbors": neighbors,
+        }
     except Exception as e:
         print(f"ML processing unavailable. Returning mock schema payload. Error: {e}")
-        neighbors = [
-            {"id": "mock_abc_1", "score": 98.4},
-            {"id": "mock_xyz_2", "score": 85.1},
-        ]
-        
-    # 4) Return results
-    return {
-        "query_path": saved_path,
-        "nearest_neighbors": neighbors,
-    }
+        return {
+            "query_path": "error",
+            "nearest_neighbors": [
+                {"id": "mock_abc_1", "score": 98.4},
+                {"id": "mock_xyz_2", "score": 85.1},
+            ]
+        }
 
 
 from models.schemas import SearchResultDetail
 
 @router.get("/results/{search_id}", response_model=SearchResultDetail)
 async def get_search_results(search_id: str):
-    # Mock fetching search results metadata
+    try:
+        from services.qdrant_service import client, COLLECTION_NAME
+        # Ask Qdrant Vector DB for the payload assigned to this UUID
+        points = client.retrieve(
+            collection_name=COLLECTION_NAME,
+            ids=[search_id],
+        )
+        if points:
+            payload = points[0].payload or {}
+            return {
+                "id": search_id,
+                "filename": payload.get("filename", f"Unknown_{search_id}.wav"),
+                "path": payload.get("path", f"/mock/path/{search_id}.wav"),
+                "score": None # Score was passed earlier, not stored on document
+            }
+    except Exception as e:
+        print(f"Failed Qdrant ID retrieval: {e}")
+
+    # Mock fallback for when DB is totally disconnected
     return {
         "id": search_id,
         "filename": f"mock_file_{search_id}.wav",
