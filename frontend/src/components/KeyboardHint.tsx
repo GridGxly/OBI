@@ -32,11 +32,12 @@ export default function KeyboardHint() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 10 }}
           transition={{ duration: 0.2 }}
-          className="fixed bottom-[76px] left-0 right-0 z-40 flex items-center justify-center py-2 px-4"
+          className="fixed bottom-[80px] left-0 right-0 z-[49] flex items-center justify-center py-2 px-4"
           style={{
-            background: "rgba(212,175,55,0.03)",
-            borderTop: "1px solid rgba(212,175,55,0.08)",
-            borderBottom: "1px solid rgba(212,175,55,0.04)",
+            background: "rgba(6,6,6,0.92)",
+            backdropFilter: "blur(12px)",
+            borderTop: "1px solid rgba(212,175,55,0.1)",
+            borderBottom: "1px solid rgba(212,175,55,0.05)",
           }}
         >
           <div className="flex items-center gap-6 font-data text-[9px] uppercase tracking-[2px]"
