@@ -51,7 +51,7 @@ export default function Home() {
 
   const { user, logout, saveSound } = useAuth();
   const { showToast } = useToast();
-  const { startPreview, stopPreview } = usePlayer();
+  const { startPreview, stopPreview, dismiss } = usePlayer();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window);
@@ -77,6 +77,8 @@ export default function Home() {
   }>>([]);
 
   const handleFindSimilar = (sourceResult: SearchResult) => {
+    dismiss();
+
     if (results.length > 0 && searchSource) {
       setResultHistory(prev => {
         const newHistory = [...prev, { source: searchSource, results }];

@@ -124,6 +124,11 @@ body {
   to { opacity: 1; }
 }
 
+@keyframes vinylSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .font-data {
   font-family: var(--font-data), monospace;
 }
