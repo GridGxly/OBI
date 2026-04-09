@@ -6,11 +6,14 @@ from typing import List
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
-QDRANT_URL = "http://localhost:6333"
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+QDRANT_PATH = os.path.abspath(os.path.join(current_dir, "../../../ml/qdrant_storage"))
+
 COLLECTION_NAME = "beats"
 VECTOR_SIZE = 512
 
-client = QdrantClient(url=QDRANT_URL)
+client = QdrantClient(path=QDRANT_PATH)
 
 
 def ensure_collection():
@@ -48,11 +51,11 @@ def upsert_embedding(embedding: List[float], payload: dict | None = None) -> str
 def search_neighbors(embedding: List[float], top_k: int = 5):
     ensure_collection()
 
-    results = client.search(
+    results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=embedding,
+        query=embedding,
         limit=top_k,
-    )
+    ).points
 
     neighbors = [
         {

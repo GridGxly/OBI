@@ -21,7 +21,9 @@ COLLECTION_NAME = "beats"
 
 
 def main():
-    client = QdrantClient(url="http://localhost:6333")
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    client = QdrantClient(path=os.path.join(current_dir, "qdrant_storage"))
 
     # Create collection if it doesn't exist
     client.recreate_collection(
