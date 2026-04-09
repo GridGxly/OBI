@@ -134,7 +134,9 @@ export default function Home() {
 
   const persistSearchHistory = useCallback((items: string[]) => {
     setSearchHistory(items);
-    localStorage.setItem(searchHistoryKey, JSON.stringify(items));
+    try {
+      localStorage.setItem(searchHistoryKey, JSON.stringify(items));
+    } catch {}
   }, [searchHistoryKey]);
 
   const saveSearchToHistory = useCallback((rawQuery: string) => {
@@ -587,6 +589,7 @@ export default function Home() {
                   if (!file && !isRecording) setIsUtilityPanelOpen(false);
                 }}
                 disabled={isRecording || !!file}
+                autoFocus={typeof window !== 'undefined' && !('ontouchstart' in window)}
                 className="flex-1 bg-transparent pl-3 pr-2 outline-none font-display text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ color: "var(--text-primary)" }}
                 placeholder={isRecording ? "Recording in progress…" : file ? "Audio file loaded" : "Describe a sound or vibe…"}
@@ -833,11 +836,14 @@ export default function Home() {
                       </button>
 
                       <button
-                        onMouseDown={(e) => { e.preventDefault(); startRecording(); }}
-                        onMouseUp={stopRecording}
-                        onMouseLeave={() => { if (isRecording) stopRecording(); }}
-                        onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-                        onTouchEnd={stopRecording}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (isRecording) {
+                            stopRecording();
+                          } else {
+                            startRecording();
+                          }
+                        }}
                         className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
                         style={{
                           border: isRecording ? "1px solid rgba(212,175,55,0.4)" : "1px dashed rgba(255,255,255,0.08)",
@@ -860,7 +866,7 @@ export default function Home() {
                             <Mic size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
                             <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Record mic</span>
                             <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
-                              Hold to record
+                              Click to record
                             </span>
                           </>
                         )}
@@ -941,7 +947,7 @@ export default function Home() {
           {!hasResults && !isFocused && !isScanning && (
             <ExampleSearches onSelect={(q) => {
               setQuery(q);
-              setIsFocused(true);
+              handleSearch(q);
             }} />
           )}
 
@@ -997,10 +1003,12 @@ export default function Home() {
                           Back
                         </button>
                       )}
-                      <span className="opacity-60 flex items-center gap-2">
-                         {resultHistory.length > 0 && <span>/</span>}
-                         Depth: {resultHistory.length}
-                      </span>
+                      {resultHistory.length > 0 && (
+                        <span className="opacity-60 flex items-center gap-2">
+                           <span>/</span>
+                           Depth: {resultHistory.length}
+                        </span>
+                      )}
                     </div>
                     <span>
                        {searchSource.type === "similar" ? `Similar to: ${searchSource.similarTo}` :

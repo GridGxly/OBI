@@ -340,7 +340,7 @@ export default function NowPlayingBar() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 w-[28%] min-w-[140px]">
+              <div className="flex items-center justify-end gap-3 w-[28%] min-w-0 sm:min-w-[140px]">
                 <div className="hidden md:flex items-center gap-2">
                   <button
                     onClick={handleMuteToggle}
