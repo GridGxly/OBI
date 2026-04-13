@@ -936,10 +936,21 @@ export default function Home() {
                                       </span>
                                       <button
                                         onClick={() => setFile(null)}
-                                        className="font-data text-[9px] uppercase tracking-widest font-bold transition-colors hover:text-white"
-                                        style={{ color: "var(--accent-dim)" }}
+                                        className="font-data text-[9px] uppercase tracking-[2px] font-bold transition-all flex items-center gap-1.5 px-2.5 py-1 rounded flex-shrink-0"
+                                        style={{ color: "var(--text-secondary)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = "#ff6b6b";
+                                          e.currentTarget.style.borderColor = "rgba(255,107,107,0.3)";
+                                          e.currentTarget.style.background = "rgba(255,107,107,0.1)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = "var(--text-secondary)";
+                                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                                          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                                        }}
                                       >
-                                        Clear
+                                        <X size={10} />
+                                        Clear File
                                       </button>
                                     </div>
                                     <div className="px-2 pb-2">
