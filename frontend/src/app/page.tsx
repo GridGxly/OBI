@@ -424,6 +424,33 @@ export default function Home() {
   const ghostBtn: CSSProperties = { background: "none", border: "1px solid #2a2a2a", color: "#666", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", cursor: "pointer" };
   const goldBtn: CSSProperties = { backgroundColor: "#b8a96a", border: "none", color: "#0a0a0a", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", fontWeight: 600, cursor: "pointer" };
 
+  const resultsContainerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.5,
+      },
+    },
+  };
+
+  const resultCardVariants = {
+    hidden: {
+      opacity: 0,
+      y: 20,
+      scale: 0.98,
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.4,
+        ease: [0.25, 0.46, 0.45, 0.94], // custom easeOutQuad
+      },
+    },
+  };
+
   return (
     <div
       onDragEnter={handleDragEnter}
@@ -989,9 +1016,10 @@ export default function Home() {
           {hasResults && (
             <motion.div
               className="w-full max-w-2xl flex flex-col gap-4 z-10 relative pb-20 mt-10"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              variants={resultsContainerVariants}
+              initial="hidden"
+              animate="visible"
+              key={results.length > 0 ? results[0]?.id || "results" : "empty"}
             >
               <div className="flex flex-col gap-4 mb-2">
                 {searchSource && (
@@ -1095,14 +1123,8 @@ export default function Home() {
 
               {results.map((result, i) => (
                 <motion.div
-                  key={result.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    delay: i * 0.08,
-                    duration: 0.35,
-                    ease: [0.4, 0, 0.2, 1],
-                  }}
+                  key={result.id || i}
+                  variants={resultCardVariants}
                 >
                   <div
                     className="group/card flex flex-col gap-2 rounded-[14px] relative transition-all duration-200"
