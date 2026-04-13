@@ -7,6 +7,7 @@ import AudioPlayer from "@/components/AudioPlayer";
 import VibeKnob from "@/components/VibeKnob";
 import ExampleSearches from "@/components/ExampleSearches";
 import SkeletonCard from "@/components/SkeletonCard";
+import MatchArc from "@/components/MatchArc";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -446,7 +447,7 @@ export default function Home() {
       scale: 1,
       transition: {
         duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94], // custom easeOutQuad
+        ease: [0.25, 0.46, 0.45, 0.94],
       },
     },
   };
@@ -1159,25 +1160,7 @@ export default function Home() {
                     <span className="font-display text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
                       {result.title}
                     </span>
-                    <div
-                      className="flex items-baseline gap-0.5 rounded-[10px] px-3 py-1.5 shrink-0"
-                      style={{
-                        background: result.score >= 90
-                          ? "rgba(212,175,55,0.08)"
-                          : "rgba(255,255,255,0.025)",
-                        border: result.score >= 90
-                          ? "1px solid rgba(212,175,55,0.2)"
-                          : "1px solid rgba(255,255,255,0.05)",
-                      }}
-                    >
-                      <span
-                        className="font-data text-lg font-extrabold tabular-nums leading-none"
-                        style={{ color: result.score >= 90 ? "var(--accent)" : "var(--text-secondary)" }}
-                      >
-                        {result.score}
-                      </span>
-                      <span className="font-data text-[8px]" style={{ color: "var(--text-tertiary)" }}>%</span>
-                    </div>
+                    <MatchArc score={result.score} size={48} />
                   </div>
 
                   {(result.bpm || result.tags || result.year) && (
