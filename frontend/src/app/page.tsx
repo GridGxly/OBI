@@ -59,7 +59,18 @@ export default function Home() {
 
   const hasResults = results.length > 0;
   const hasInput = !!query || !!file;
-  const activeMode: "text" | "upload" | "mic" = isRecording ? "mic" : file ? "upload" : "text";
+  
+  const modes = ["text", "upload", "mic"] as const;
+  type Mode = typeof modes[number];
+  const [currentMode, setCurrentMode] = useState<Mode>("text");
+  const [modeDirection, setModeDirection] = useState(0);
+
+  const switchMode = (newMode: Mode) => {
+    const oldIndex = modes.indexOf(currentMode);
+    const newIndex = modes.indexOf(newMode);
+    setModeDirection(newIndex > oldIndex ? 1 : -1);
+    setCurrentMode(newMode);
+  };
 
   const [filters, setFilters] = useState({ dust: 0, warmth: 0, crunch: 0 });
 
@@ -259,6 +270,7 @@ export default function Home() {
         const recordedFile = new File([audioBlob], `recording.${extension}`, { type: mimeType });
         setFile(recordedFile);
         setIsFocused(true);
+        setCurrentMode("mic");
         setIsUtilityPanelOpen(true);
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -294,6 +306,7 @@ export default function Home() {
       }
       setFile(selectedFile);
       setIsFocused(true);
+      setCurrentMode("upload");
       setIsUtilityPanelOpen(true);
     }
   };
@@ -419,6 +432,7 @@ export default function Home() {
 
     setFile(droppedFile);
     setIsFocused(true);
+    setCurrentMode("upload");
     showToast(`${droppedFile.name} loaded`, "success");
   };
 
@@ -450,6 +464,23 @@ export default function Home() {
         ease: [0.25, 0.46, 0.45, 0.94],
       },
     },
+  };
+
+  const modeVariants = {
+    enter: (direction: number) => ({
+      x: direction * 60,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] },
+    },
+    exit: (direction: number) => ({
+      x: direction * -60,
+      opacity: 0,
+      transition: { duration: 0.15 },
+    }),
   };
 
   return (
@@ -643,6 +674,7 @@ export default function Home() {
                     e.preventDefault();
                     e.stopPropagation();
                     setIsFocused(true);
+                    setCurrentMode("upload");
                     setIsUtilityPanelOpen(true);
                     fileInputRef.current?.click();
                   }}
@@ -664,6 +696,7 @@ export default function Home() {
                       e.preventDefault();
                       e.stopPropagation();
                       setIsFocused(true);
+                      setCurrentMode("mic");
                       setIsUtilityPanelOpen(true);
                       if (isRecording) {
                         stopRecording();
@@ -823,117 +856,155 @@ export default function Home() {
                 >
                   <div className="flex flex-col gap-3 p-4">
                     <div className="flex items-center justify-center gap-1 mb-1">
-                      {(["text", "upload", "mic"] as const).map((mode) => (
-                        <span
+                      {modes.map((mode) => (
+                        <button
                           key={mode}
-                          className="font-data text-[10px] uppercase py-[5px] px-4 rounded-[3px] transition-all duration-200"
-                          style={{
-                            letterSpacing: "3px",
-                            color: activeMode === mode ? "var(--accent)" : "var(--text-tertiary)",
-                            background: activeMode === mode ? "rgba(212,175,55,0.1)" : "transparent",
-                            border: activeMode === mode ? "1px solid rgba(212,175,55,0.25)" : "1px solid transparent",
-                          }}
+                          onClick={() => switchMode(mode)}
+                          className="relative px-3 py-1.5"
                         >
-                          {mode}
-                        </span>
+                          <span className={`font-data text-[9px] uppercase tracking-[3px] ${
+                            currentMode === mode ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]"
+                          }`}>
+                            {mode}
+                          </span>
+                          {currentMode === mode && (
+                            <motion.div
+                              layoutId="mode-indicator"
+                              className="absolute bottom-0 left-0 right-0 h-[1px]"
+                              style={{ background: "var(--accent)" }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                          )}
+                        </button>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
-                        style={{
-                          border: "1px dashed rgba(255,255,255,0.08)",
-                          background: "transparent",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "rgba(212,175,55,0.25)";
-                          e.currentTarget.style.background = "rgba(212,175,55,0.02)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <Upload size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
-                        <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Upload audio</span>
-                        <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
-                          Drop .wav or .mp3
-                        </span>
-                      </button>
+                    <div className="relative overflow-hidden w-full min-h-[140px]">
+                      <AnimatePresence mode="wait" custom={modeDirection}>
+                        <motion.div
+                          key={currentMode}
+                          custom={modeDirection}
+                          variants={modeVariants}
+                          initial="enter"
+                          animate="center"
+                          exit="exit"
+                          className="w-full flex flex-col items-center justify-center"
+                          style={{ minHeight: "140px" }}
+                        >
+                          {currentMode === "text" && (
+                            <div className="w-full h-full flex items-center justify-center py-6">
+                              {!hasInput && (
+                                <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+                                  Paste a vibe, drop audio, or hold to record.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {currentMode === "upload" && (
+                            <div className="w-full flex justify-center">
+                              <div className="w-full max-w-[280px]">
+                                <button
+                                  onClick={() => fileInputRef.current?.click()}
+                                  className="group flex w-full flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
+                                  style={{
+                                    border: "1px dashed rgba(255,255,255,0.08)",
+                                    background: "transparent",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.borderColor = "rgba(212,175,55,0.25)";
+                                    e.currentTarget.style.background = "rgba(212,175,55,0.02)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                                    e.currentTarget.style.background = "transparent";
+                                  }}
+                                >
+                                  <Upload size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
+                                  <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Upload audio</span>
+                                  <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
+                                    Drop .wav or .mp3
+                                  </span>
+                                </button>
+                                
+                                {file && filePreviewUrl && (
+                                  <div className="w-full rounded-xl overflow-hidden mt-3" style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.15)" }}>
+                                    <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+                                      <span className="truncate max-w-[75%] text-sm font-medium flex items-center gap-2" style={{ color: "var(--accent)" }}>
+                                        <Play size={12} className="fill-current shrink-0" />
+                                        {file.name}
+                                      </span>
+                                      <button
+                                        onClick={() => setFile(null)}
+                                        className="font-data text-[9px] uppercase tracking-widest font-bold transition-colors hover:text-white"
+                                        style={{ color: "var(--accent-dim)" }}
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                    <div className="px-2 pb-2">
+                                      <AudioPlayer track={{ id: "preview", title: file.name, url: filePreviewUrl, tags: ["Upload"] }} />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (isRecording) {
-                            stopRecording();
-                          } else {
-                            startRecording();
-                          }
-                        }}
-                        className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
-                        style={{
-                          border: isRecording ? "1px solid rgba(212,175,55,0.4)" : "1px dashed rgba(255,255,255,0.08)",
-                          background: isRecording ? "rgba(212,175,55,0.04)" : "transparent",
-                        }}
-                      >
-                        {isRecording ? (
-                          <div
-                            className="w-[72px] h-[72px] rounded-full flex items-center justify-center"
-                            style={{
-                              border: "2px solid var(--accent)",
-                              background: "rgba(212,175,55,0.06)",
-                              animation: "pulseMic 2s ease-in-out infinite",
-                            }}
-                          >
-                            <Square size={20} style={{ color: "var(--accent)" }} className="fill-current" />
-                          </div>
-                        ) : (
-                          <>
-                            <Mic size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
-                            <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Record mic</span>
-                            <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
-                              Click to record
-                            </span>
-                          </>
-                        )}
-                        {isRecording && (
-                          <span className="font-data text-[11px] mt-1" style={{ color: "var(--accent)" }}>
-                            {formatTime(recordingTime)}
-                          </span>
-                        )}
-                      </button>
+                          {currentMode === "mic" && (
+                            <div className="w-full flex justify-center">
+                              <div className="w-full max-w-[280px]">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    if (isRecording) {
+                                      stopRecording();
+                                    } else {
+                                      startRecording();
+                                    }
+                                  }}
+                                  className="group flex w-full flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
+                                  style={{
+                                    border: isRecording ? "1px solid rgba(212,175,55,0.4)" : "1px dashed rgba(255,255,255,0.08)",
+                                    background: isRecording ? "rgba(212,175,55,0.04)" : "transparent",
+                                  }}
+                                >
+                                  {isRecording ? (
+                                    <div
+                                      className="w-[72px] h-[72px] rounded-full flex items-center justify-center"
+                                      style={{
+                                        border: "2px solid var(--accent)",
+                                        background: "rgba(212,175,55,0.06)",
+                                        animation: "pulseMic 2s ease-in-out infinite",
+                                      }}
+                                    >
+                                      <Square size={20} style={{ color: "var(--accent)" }} className="fill-current" />
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <Mic size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
+                                      <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Record mic</span>
+                                      <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
+                                        Click to record
+                                      </span>
+                                    </>
+                                  )}
+                                  {isRecording && (
+                                    <span className="font-data text-[11px] mt-1" style={{ color: "var(--accent)" }}>
+                                      {formatTime(recordingTime)}
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      </AnimatePresence>
                     </div>
 
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="audio/wav, audio/mpeg" className="hidden" />
 
-                    {file && filePreviewUrl && (
-                      <div className="w-full rounded-xl overflow-hidden" style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.15)" }}>
-                        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-                          <span className="truncate max-w-[75%] text-sm font-medium flex items-center gap-2" style={{ color: "var(--accent)" }}>
-                            <Play size={12} className="fill-current shrink-0" />
-                            {file.name}
-                          </span>
-                          <button
-                            onClick={() => setFile(null)}
-                            className="font-data text-[9px] uppercase tracking-widest font-bold transition-colors hover:text-white"
-                            style={{ color: "var(--accent-dim)" }}
-                          >
-                            Clear
-                          </button>
-                        </div>
-                        <div className="px-2 pb-2">
-                          <AudioPlayer track={{ id: "preview", title: file.name, url: filePreviewUrl, tags: ["Upload"] }} />
-                        </div>
-                      </div>
-                    )}
 
-                    {!hasInput && (
-                      <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--text-tertiary)" }}>
-                        Paste a vibe, drop audio, or hold to record.
-                      </p>
-                    )}
 
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSearch(); }}
