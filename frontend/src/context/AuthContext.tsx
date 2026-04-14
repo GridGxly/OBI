@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       localStorage.setItem("obi_token", data.access_token);
 
-      persist({ id: "mock-id", email, username: email.split("@")[0], createdAt: new Date().toISOString(), savedSounds: [] });
+      persist({ id: crypto.randomUUID(), email, username: email.split("@")[0], createdAt: new Date().toISOString(), savedSounds: [] });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Login failed");
       throw e;

@@ -88,7 +88,7 @@ export default function Home() {
     results: SearchResult[];
   }>>([]);
 
-  const handleFindSimilar = (sourceResult: SearchResult) => {
+  const handleFindSimilar = async (sourceResult: SearchResult) => {
     dismiss();
 
     if (results.length > 0 && searchSource) {
@@ -108,13 +108,49 @@ export default function Home() {
     setIsScanning(true);
     setResults([]);
 
-    pendingResultsRef.current = [
-      { id: `s1-${Date.now()}`, title: `Similar: ${sourceResult.title} Variant A`, score: 94, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", bpm: sourceResult.bpm ? sourceResult.bpm + 2 : 90, tags: sourceResult.tags, year: 1975 },
-      { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
-      { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
-      { id: `s4-${Date.now()}`, title: "Forgotten Session Tape #12", score: 73, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", bpm: 102, tags: ["Session", "Tape"], year: 1981 },
-      { id: `s5-${Date.now()}`, title: "Lo-fi Gem - Basement Recording", score: 68, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", bpm: 76, tags: ["Lo-fi", "Basement"], year: 2003 },
-    ];
+    try {
+      const formData = new FormData();
+      formData.append("query", `sounds like ${sourceResult.title}`);
+      formData.append("dust", String(filters.dust));
+      formData.append("warmth", String(filters.warmth));
+      formData.append("crunch", String(filters.crunch));
+
+      const res = await fetch("http://localhost:8000/search/?top_k=5", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Backend rejected similar search");
+      const pipelineData = await res.json();
+
+      const realResults: SearchResult[] = [];
+      for (const neighbor of pipelineData.nearest_neighbors || []) {
+        const metaRes = await fetch(`http://localhost:8000/search/results/${neighbor.id}`);
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          realResults.push({
+            id: meta.id,
+            title: meta.filename || "Unknown Title",
+            score: Math.round(neighbor.score),
+            url: meta.path?.includes("http") ? meta.path : "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            bpm: meta.bpm || undefined,
+            tags: meta.tags || [],
+            year: meta.year || undefined,
+          });
+        }
+      }
+
+      pendingResultsRef.current = realResults.length > 0 ? realResults : [
+        { id: "fallback", title: "No similar sounds found", score: 0, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" }
+      ];
+    } catch (err) {
+      console.warn("Backend not reachable for similar search. Serving fallback...", err);
+      pendingResultsRef.current = [
+        { id: `s1-${Date.now()}`, title: `Similar: ${sourceResult.title} Variant A`, score: 94, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", bpm: sourceResult.bpm ? sourceResult.bpm + 2 : 90, tags: sourceResult.tags, year: 1975 },
+        { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
+        { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
+      ];
+    }
   };
 
   const handleBack = () => {
@@ -461,7 +497,7 @@ export default function Home() {
       scale: 1,
       transition: {
         duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94],
+        ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
       },
     },
   };
@@ -474,7 +510,7 @@ export default function Home() {
     center: {
       x: 0,
       opacity: 1,
-      transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] },
+      transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
     },
     exit: (direction: number) => ({
       x: direction * -60,
