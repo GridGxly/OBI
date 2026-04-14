@@ -5,13 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 import { usePlayer } from "@/context/PlayerContext";
 
-function generateBars(count: number): number[] {
-  const bars: number[] = [];
-  for (let i = 0; i < count; i++) {
-    bars.push(0.2 + Math.random() * 0.8);
-  }
-  return bars;
-}
 
 function formatTime(seconds: number): string {
   if (!seconds || !isFinite(seconds)) return "0:00";
@@ -41,24 +34,17 @@ export default function NowPlayingBar() {
     setProgress,
     setCurrentTime,
     setDuration,
-    getFrequencyData,
-    initializeAnalyser,
   } = usePlayer();
 
-  const [bars] = useState(() => generateBars(100));
   const [isMuted, setIsMuted] = useState(false);
   const [prevVolume, setPrevVolume] = useState(0.8);
   const animFrameRef = useRef<number>(0);
   const [freqBars, setFreqBars] = useState<number[]>(new Array(48).fill(0));
+  const simTimeRef = useRef<number>(Date.now());
 
   const currentIdx = currentTrack ? queue.findIndex((t) => t.id === currentTrack.id) : -1;
   const canSkipNext = currentIdx >= 0 && currentIdx < queue.length - 1;
   const canSkipPrev = currentIdx > 0 || (currentTime > 3);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-    initializeAnalyser();
-  }, [audioRef, currentTrack, initializeAnalyser]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -173,57 +159,44 @@ export default function NowPlayingBar() {
   }, [seek]);
 
   useEffect(() => {
-    let isActive = true;
-
-    const generateSimulatedBars = (time: number): number[] => {
-      const bars: number[] = [];
-      for (let i = 0; i < 48; i++) {
-        const freqCurve = Math.max(0, 1 - (i / 48) * 0.7);
-        const phase = i * 0.37;
-        const wave1 = Math.sin(time * 2.13 + phase) * 0.3;
-        const wave2 = Math.sin(time * 3.71 + phase * 1.4) * 0.2;
-        const wave3 = Math.sin(time * 1.17 + phase * 0.6) * 0.15;
-        const combined = 0.35 + wave1 + wave2 + wave3;
-        bars.push(Math.max(0.05, Math.min(1, combined * freqCurve)));
-      }
-      return bars;
-    };
-
     const animate = () => {
-      if (!isActive) return;
-
       if (!isPlaying) {
         setFreqBars(prev => {
-          const decayed = prev.map(v => v * 0.9);
-          if (decayed.some(v => v > 0.01)) {
-            animFrameRef.current = requestAnimationFrame(animate);
+          const decayed = prev.map(v => v * 0.85);
+          if (decayed.every(v => v < 0.005)) {
+            cancelAnimationFrame(animFrameRef.current);
+            return new Array(48).fill(0);
           }
+          animFrameRef.current = requestAnimationFrame(animate);
           return decayed;
         });
         return;
       }
 
-      const data = getFrequencyData();
-      const sum = data.reduce((a, b) => a + b, 0);
-
-      if (sum > 0) {
-        const newBars = Array.from(data.slice(0, 48)).map(v => v / 255);
-        setFreqBars(newBars);
-      } else {
-        const time = performance.now() / 1000;
-        setFreqBars(generateSimulatedBars(time));
+      const t = (Date.now() - simTimeRef.current) / 1000;
+      const bars: number[] = [];
+      for (let i = 0; i < 48; i++) {
+        const curve = Math.max(0, 1 - (i / 48) * 0.6);
+        const w1 = Math.sin(t * 2.3 + i * 0.45) * 0.28;
+        const w2 = Math.sin(t * 1.8 + i * 0.7) * 0.22;
+        const w3 = Math.sin(t * 3.7 + i * 0.25) * 0.13;
+        const w4 = Math.sin(t * 5.1 + i * 1.1) * 0.08;
+        const val = Math.max(0.04, Math.min(1, curve * 0.45 + w1 + w2 + w3 + w4 + 0.18));
+        bars.push(val);
       }
-
+      setFreqBars(bars);
       animFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animFrameRef.current = requestAnimationFrame(animate);
+    if (isPlaying) {
+      simTimeRef.current = Date.now();
+      animFrameRef.current = requestAnimationFrame(animate);
+    } else if (freqBars.some(v => v > 0.005)) {
+      animFrameRef.current = requestAnimationFrame(animate);
+    }
 
-    return () => {
-      isActive = false;
-      cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [isPlaying, getFrequencyData]);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [isPlaying]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -366,24 +339,25 @@ export default function NowPlayingBar() {
                   </span>
 
                   <svg
-                    className="flex-1 h-4 cursor-pointer"
-                    viewBox={`0 0 ${48 * 5} 28`}
+                    className="flex-1 cursor-pointer"
+                    height={32}
+                    viewBox="0 0 240 32"
                     preserveAspectRatio="none"
                     onClick={handleBarClick}
+                    style={{ minWidth: 0 }}
                   >
                     {freqBars.map((amplitude, i) => {
-                      const barHeight = Math.max(2, amplitude * 26);
+                      const barH = Math.max(1.5, amplitude * 28);
                       const isPast = (i / 48) * 100 < progress;
                       return (
                         <rect
                           key={i}
                           x={i * 5}
-                          y={14 - barHeight / 2}
+                          y={16 - barH / 2}
                           width={3}
-                          height={barHeight}
+                          height={barH}
                           rx={1}
-                          fill={isPast ? "rgba(212,175,55,0.9)" : "rgba(255,255,255,0.15)"}
-                          style={{ transition: "height 0.05s linear, y 0.05s linear" }}
+                          fill={isPast ? "rgba(212,175,55,0.85)" : "rgba(255,255,255,0.12)"}
                         />
                       );
                     })}

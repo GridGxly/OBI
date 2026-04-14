@@ -2,12 +2,6 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback } from "react";
 
-declare global {
-  interface Window {
-    webkitAudioContext: typeof AudioContext;
-  }
-}
-
 export interface Track {
   id: string;
   title: string;
@@ -42,8 +36,6 @@ interface PlayerContextType {
   isPreviewPlaying: boolean;
   startPreview: (url: string) => void;
   stopPreview: () => void;
-  getFrequencyData: () => Uint8Array;
-  initializeAnalyser: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -60,36 +52,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const previewAudioRef = useRef<HTMLAudioElement>(null);
   const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const frequencyDataRef = useRef<Uint8Array>(new Uint8Array(64));
-
-  const initializeAnalyser = useCallback(() => {
-    if (!audioRef.current || sourceNodeRef.current) return;
-
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 128;
-    analyser.smoothingTimeConstant = 0.75;
-
-    const source = ctx.createMediaElementSource(audioRef.current);
-    source.connect(analyser);
-    analyser.connect(ctx.destination);
-
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
-    sourceNodeRef.current = source;
-    frequencyDataRef.current = new Uint8Array(analyser.frequencyBinCount);
-  }, []);
-
-  const getFrequencyData = useCallback((): Uint8Array => {
-    if (analyserRef.current) {
-      analyserRef.current.getByteFrequencyData(frequencyDataRef.current);
-    }
-    return frequencyDataRef.current;
-  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -265,8 +227,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isPreviewPlaying,
         startPreview,
         stopPreview,
-        getFrequencyData,
-        initializeAnalyser,
       }}
     >
       {children}
