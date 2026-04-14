@@ -253,7 +253,7 @@ function Knob({ label, value, onChange, accentColor = "#d4af37", defaultValue = 
           fontSize: 9,
           letterSpacing: "3px",
           textTransform: "uppercase",
-          color: "var(--text-tertiary, #555)",
+          color: "var(--text-secondary, #999)",
         }}
       >
         {label}
@@ -289,7 +289,7 @@ export default function SoundKnobs({ resultId }: SoundKnobsProps) {
           fontSize: 8,
           letterSpacing: "3px",
           textTransform: "uppercase",
-          color: "rgba(255,255,255,0.12)",
+          color: "rgba(255,255,255,0.25)",
           writingMode: "vertical-rl",
           transform: "rotate(180deg)",
           marginRight: 2,
@@ -317,12 +317,12 @@ export default function SoundKnobs({ resultId }: SoundKnobsProps) {
             fontSize: 8,
             letterSpacing: "2px",
             textTransform: "uppercase",
-            color: "rgba(255,255,255,0.15)",
+            color: "rgba(255,255,255,0.25)",
             padding: "4px 0",
             transition: "color 0.2s",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(212,175,55,0.6)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.15)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(212,175,55,0.8)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}
         >
           Reset
         </button>

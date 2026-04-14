@@ -590,7 +590,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              The Sonic Search Engine.
+              Find any sound.
             </motion.p>
             <motion.p
               className="font-display text-sm md:text-base max-w-lg leading-snug mb-6"
@@ -599,8 +599,8 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              Turn hours of crate digging into seconds of discovery. Find the
-              obscure, perfect sounds for your next hit.
+              Describe what you hear, upload a clip, or record something.<br className="hidden sm:block" />
+              We&apos;ll find sounds that match.
             </motion.p>
           </div>
 
@@ -750,7 +750,7 @@ export default function Home() {
                   className="font-data text-[9px] uppercase tracking-[2px] text-center mt-0"
                   style={{ color: "rgba(255,255,255,0.1)" }}
                 >
-                  Press Enter to search
+                  press enter to search
                 </p>
               </div>
             )}
@@ -1075,7 +1075,7 @@ export default function Home() {
                         e.currentTarget.style.boxShadow = "none";
                       }}
                     >
-                      {isScanning ? "Scanning…" : "Scan Sound"}
+                      {isScanning ? "Searching…" : "Search"}
                     </button>
                   </div>
                 </motion.div>
@@ -1114,9 +1114,9 @@ export default function Home() {
               style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
             >
               <span className="font-data text-[10px] uppercase tracking-[3px]"
-                style={{ color: "rgba(255,255,255,0.08)" }}>Results</span>
+                style={{ color: "rgba(255,255,255,0.18)" }}>Sounds</span>
               <span className="font-data text-[10px] uppercase tracking-[3px]"
-                style={{ color: "rgba(255,255,255,0.08)" }}>Match %</span>
+                style={{ color: "rgba(255,255,255,0.18)" }}>Closeness</span>
             </div>
             {[...Array(4)].map((_, i) => (
               <SkeletonCard key={i} />
@@ -1150,10 +1150,10 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    <span>
-                       {searchSource.type === "similar" ? `Similar to: ${searchSource.similarTo}` :
-                        searchSource.type === "text" ? `Query: "${searchSource.query}"` :
-                        searchSource.type === "upload" ? `File: ${searchSource.fileName}` : ""}
+                    <span style={{ color: "var(--text-secondary)" }}>
+                       {searchSource.type === "similar" ? <>Sounds like &ldquo;{searchSource.similarTo}&rdquo;</> :
+                        searchSource.type === "text" ? <>Searching for &ldquo;{searchSource.query}&rdquo;</> :
+                        searchSource.type === "upload" || searchSource.type === "recording" ? "Listening to your recording" : ""}
                     </span>
                   </div>
                 )}
@@ -1163,9 +1163,9 @@ export default function Home() {
                 >
                   <span
                     className="font-data text-[10px] uppercase tracking-[3px]"
-                    style={{ color: "var(--text-tertiary)" }}
+                    style={{ color: "var(--text-secondary)" }}
                   >
-                    Results
+                    {results.length} {results.length === 1 ? "sound" : "sounds"} found
                   </span>
 
                   <button
@@ -1174,7 +1174,7 @@ export default function Home() {
                     style={{
                       color: (filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0)
                         ? "var(--accent)"
-                        : "var(--text-tertiary)",
+                        : "var(--text-secondary)",
                       background: filtersOpen ? "rgba(212,175,55,0.05)" : "transparent",
                       border: filtersOpen ? "1px solid rgba(212,175,55,0.12)" : "1px solid transparent",
                     }}
@@ -1188,9 +1188,9 @@ export default function Home() {
 
                   <span
                     className="font-data text-[10px] uppercase tracking-[3px]"
-                    style={{ color: "var(--text-tertiary)" }}
+                    style={{ color: "var(--text-secondary)" }}
                   >
-                    Match %
+                    Closeness
                   </span>
                 </div>
               </div>
@@ -1277,8 +1277,8 @@ export default function Home() {
                   {(result.bpm || result.tags || result.year) && (
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {result.bpm && (
-                        <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }}>
-                          {result.bpm} BPM
+                        <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }} title="beats per minute">
+                          {result.bpm} bpm
                         </span>
                       )}
                       {result.tags?.map((tag) => (
@@ -1310,7 +1310,7 @@ export default function Home() {
                       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
                     >
                       <RefreshCw size={11} />
-                      Find Similar
+                      More like this
                     </button>
 
                     <button

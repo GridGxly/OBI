@@ -210,7 +210,7 @@ export default function ProfilePage() {
         >
           {[
             { value: totalSaved, label: "Saved", icon: Music, highlight: true },
-            { value: avgMatch > 0 ? `${avgMatch}%` : "—", label: "Avg Match", icon: Search, highlight: false },
+            { value: avgMatch > 0 ? `${avgMatch}%` : "—", label: "Avg. Closeness", icon: Search, highlight: false },
             { value: uniqueTags.size > 0 ? uniqueTags.size : "—", label: "Genres", icon: Layers, highlight: false },
           ].map((stat) => (
             <div
@@ -265,7 +265,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               <span className="font-data text-[10px] uppercase tracking-[3px]" style={{ color: "var(--text-tertiary)" }}>
-                Your Crate
+                Saved Sounds
               </span>
               <span
                 className="font-data text-[9px] tabular-nums px-2 py-0.5 rounded-md"
@@ -286,7 +286,7 @@ export default function ProfilePage() {
                     border: showSortMenu ? "1px solid rgba(255,255,255,0.08)" : "1px solid transparent",
                   }}
                 >
-                  Sort: {sortBy === "recent" ? "Recent" : sortBy === "match" ? "Match %" : "BPM"}
+                  Sort: {sortBy === "recent" ? "Recent" : sortBy === "match" ? "Closeness" : "BPM"}
                   <ChevronDown size={10} style={{ transform: showSortMenu ? "rotate(180deg)" : "none", transition: "transform 200ms ease" }} />
                 </button>
 
@@ -308,7 +308,7 @@ export default function ProfilePage() {
                     >
                       {([
                         { key: "recent" as SortOption, label: "Recent" },
-                        { key: "match" as SortOption, label: "Match %" },
+                        { key: "match" as SortOption, label: "Closeness" },
                         { key: "bpm" as SortOption, label: "BPM" },
                       ]).map((option) => (
                         <button
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                 <Music size={24} style={{ color: "var(--accent-dim)" }} />
               </div>
               <p className="font-display text-[16px] font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                Your crate is empty
+                No saved sounds yet
               </p>
               <p className="font-data text-[10px] uppercase tracking-[3px] mb-8" style={{ color: "var(--text-tertiary)" }}>
                 Save sounds from search results to build your collection
@@ -381,7 +381,7 @@ export default function ProfilePage() {
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                Start searching
+                Find something
               </Link>
             </div>
           ) : (
@@ -464,7 +464,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {sound.bpm && (
                             <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }}>
-                              {sound.bpm} BPM
+                              {sound.bpm} bpm
                             </span>
                           )}
                           {sound.tags.slice(0, 3).map((tag) => (
@@ -524,7 +524,7 @@ export default function ProfilePage() {
                           style={{ color: "var(--text-tertiary)" }}
                           onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,120,120,0.8)"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                          title="Remove from crate"
+                          title="Remove from saved"
                         >
                           <Trash2 size={13} />
                         </button>

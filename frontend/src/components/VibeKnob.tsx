@@ -155,7 +155,7 @@ export default function VibeKnob({
     <div className="flex flex-col items-center gap-1.5 select-none">
       <span
         className="font-data text-[9px] uppercase tracking-[4px]"
-        style={{ color: "var(--text-tertiary)" }}
+        style={{ color: "var(--text-secondary)" }}
       >
         {label}
       </span>
