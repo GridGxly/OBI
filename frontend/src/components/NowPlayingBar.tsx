@@ -40,7 +40,6 @@ export default function NowPlayingBar() {
   const [prevVolume, setPrevVolume] = useState(0.8);
   const animFrameRef = useRef<number>(0);
   const [freqBars, setFreqBars] = useState<number[]>(new Array(48).fill(0));
-  const simTimeRef = useRef<number>(Date.now());
 
   const currentIdx = currentTrack ? queue.findIndex((t) => t.id === currentTrack.id) : -1;
   const canSkipNext = currentIdx >= 0 && currentIdx < queue.length - 1;
@@ -159,44 +158,71 @@ export default function NowPlayingBar() {
   }, [seek]);
 
   useEffect(() => {
+    let animFrame: number;
+
     const animate = () => {
       if (!isPlaying) {
         setFreqBars(prev => {
           const decayed = prev.map(v => v * 0.85);
           if (decayed.every(v => v < 0.005)) {
-            cancelAnimationFrame(animFrameRef.current);
             return new Array(48).fill(0);
           }
-          animFrameRef.current = requestAnimationFrame(animate);
+          animFrame = requestAnimationFrame(animate);
           return decayed;
         });
         return;
       }
 
-      const t = (Date.now() - simTimeRef.current) / 1000;
+      const time = currentTime;
+      const bpm = currentTrack?.bpm || 90;
+
+      const beatInterval = 60 / bpm;
+      const beatPhase = (time % beatInterval) / beatInterval;
+      const beatPulse = Math.pow(Math.sin(beatPhase * Math.PI), 4);
+
+      const eighthInterval = beatInterval / 2;
+      const eighthPhase = (time % eighthInterval) / eighthInterval;
+      const eighthPulse = Math.pow(Math.sin(eighthPhase * Math.PI), 6) * 0.3;
+
       const bars: number[] = [];
       for (let i = 0; i < 48; i++) {
-        const curve = Math.max(0, 1 - (i / 48) * 0.6);
-        const w1 = Math.sin(t * 2.3 + i * 0.45) * 0.28;
-        const w2 = Math.sin(t * 1.8 + i * 0.7) * 0.22;
-        const w3 = Math.sin(t * 3.7 + i * 0.25) * 0.13;
-        const w4 = Math.sin(t * 5.1 + i * 1.1) * 0.08;
-        const val = Math.max(0.04, Math.min(1, curve * 0.45 + w1 + w2 + w3 + w4 + 0.18));
-        bars.push(val);
+        const curve = Math.max(0, 1 - (i / 48) * 0.55);
+
+        const positionSeed = Math.sin(time * 0.3 + i * 2.1) * 0.15;
+
+        const drift1 = Math.sin(time * 1.9 + i * 0.5) * 0.1;
+        const drift2 = Math.sin(time * 3.3 + i * 0.8) * 0.07;
+
+        const beatWeight = Math.max(0, 1 - (i / 48) * 1.5);
+        const beatContribution = beatPulse * beatWeight * 0.35;
+        const eighthContribution = eighthPulse * beatWeight * 0.5;
+
+        const shimmer = Math.sin(time * 8.7 + i * 1.7) * 0.04 * (i / 48);
+
+        const raw = curve * 0.32
+          + beatContribution
+          + eighthContribution
+          + positionSeed
+          + drift1
+          + drift2
+          + shimmer
+          + 0.08;
+
+        bars.push(Math.max(0.03, Math.min(1, raw)));
       }
+
       setFreqBars(bars);
-      animFrameRef.current = requestAnimationFrame(animate);
+      animFrame = requestAnimationFrame(animate);
     };
 
     if (isPlaying) {
-      simTimeRef.current = Date.now();
-      animFrameRef.current = requestAnimationFrame(animate);
+      animFrame = requestAnimationFrame(animate);
     } else if (freqBars.some(v => v > 0.005)) {
-      animFrameRef.current = requestAnimationFrame(animate);
+      animFrame = requestAnimationFrame(animate);
     }
 
-    return () => cancelAnimationFrame(animFrameRef.current);
-  }, [isPlaying]);
+    return () => cancelAnimationFrame(animFrame);
+  }, [isPlaying, currentTime, currentTrack]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
