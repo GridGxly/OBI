@@ -893,9 +893,19 @@ export default function Home() {
                         >
                           {currentMode === "text" && (
                             <div className="w-full h-full flex items-center justify-center py-6">
-                              {!hasInput && (
+                              {!isRecording && !file && !query && (
                                 <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--text-tertiary)" }}>
                                   Paste a vibe, drop audio, or hold to record.
+                                </p>
+                              )}
+                              {file && (
+                                <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--accent)" }}>
+                                  "{file.name}" is loaded. Switch to Upload to clear it.
+                                </p>
+                              )}
+                              {isRecording && (
+                                <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--accent)" }}>
+                                  Recording in progress. Switch to Mic to stop.
                                 </p>
                               )}
                             </div>
