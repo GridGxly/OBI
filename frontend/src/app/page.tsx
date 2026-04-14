@@ -564,7 +564,7 @@ export default function Home() {
             style={{
               fontSize: hasResults ? 32 : "clamp(48px, 10vw, 80px)",
               letterSpacing: hasResults ? "0.25em" : "0.35em",
-              textShadow: "0 0 60px rgba(212,175,55,0.08)",
+              animation: hasResults ? "none" : "titleGlow 4s ease-in-out infinite",
               transition: "font-size 0.7s cubic-bezier(0.4,0,0.2,1), letter-spacing 0.7s cubic-bezier(0.4,0,0.2,1)",
             }}
             initial={{ opacity: 0, y: 10 }}
@@ -601,6 +601,25 @@ export default function Home() {
             >
               Turn hours of crate digging into seconds of discovery. Find the
               obscure, perfect sounds for your next hit.
+            </motion.p>
+          </div>
+
+          <div
+            style={{
+              maxHeight: hasResults ? 0 : 40,
+              opacity: hasResults ? 0 : 1,
+              overflow: "hidden",
+              transition: "max-height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease",
+            }}
+          >
+            <motion.p
+              className="font-[family-name:var(--font-data)] text-[11px] uppercase tracking-[5px] mt-4 mb-6"
+              style={{ color: "var(--text-secondary)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+            >
+              Drop a sound. Find its twin.
             </motion.p>
           </div>
 
