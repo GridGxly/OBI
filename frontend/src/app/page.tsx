@@ -672,7 +672,7 @@ export default function Home() {
                 style={{ color: "var(--text-primary)" }}
                 placeholder={isRecording ? "Recording in progress…" : file ? "Audio file loaded" : "Describe a sound or vibe…"}
               />
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {query && !isRecording && !file && (
                   <button
                     onClick={(e) => {

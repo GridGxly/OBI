@@ -248,6 +248,7 @@ export default function NowPlayingBar() {
               background: "linear-gradient(180deg, rgba(14,14,14,0.92) 0%, rgba(8,8,8,0.98) 100%)",
               backdropFilter: "blur(24px) saturate(1.2)",
               borderTop: "1px solid rgba(255,255,255,0.06)",
+              paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5">
@@ -261,7 +262,7 @@ export default function NowPlayingBar() {
             </div>
 
             <div className="flex items-center justify-between px-4 md:px-6 py-3 h-[72px] sm:h-[72px]">
-              <div className="flex items-center gap-3 w-[28%] min-w-[100px] sm:min-w-[140px]">
+              <div className="flex items-center gap-3 w-[28%] min-w-0 sm:min-w-[140px]">
                 <div
                   className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center overflow-hidden relative"
                   style={{
@@ -296,7 +297,7 @@ export default function NowPlayingBar() {
                 </div>
 
                 <div className="flex flex-col overflow-hidden">
-                  <span className="font-display text-[13px] font-semibold text-white/90 truncate leading-tight">
+                  <span className="font-display text-[13px] font-semibold text-white/90 truncate max-w-[120px] sm:max-w-none leading-tight">
                     {currentTrack.title}
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
