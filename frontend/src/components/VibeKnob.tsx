@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo, useState, useEffect } from "react";
 
 type VibeKnobProps = {
   label: string;
@@ -8,7 +8,11 @@ type VibeKnobProps = {
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  defaultValue?: number;
 };
+
+const DEAD_ZONE = 4;
+const SENSITIVITY_BASE = 0.6;
 
 export default function VibeKnob({
   label,
@@ -16,9 +20,18 @@ export default function VibeKnob({
   onChange,
   min = 0,
   max = 100,
+  defaultValue = 0,
 }: VibeKnobProps) {
-  const dragRef = useRef<{ startY: number; startVal: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const startYRef = useRef(0);
+  const pastDeadZoneRef = useRef(false);
+  const lastTapRef = useRef(0);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const [isDragging, setIsDragging] = useState(false);
+
+  valueRef.current = value;
+  onChangeRef.current = onChange;
 
   const normalized = (value - min) / (max - min);
   const rotation = -135 + normalized * 270;
@@ -48,57 +61,98 @@ export default function VibeKnob({
     return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
   }, [normalized]);
 
+  const handleDragMove = useCallback((clientY: number) => {
+    const totalDelta = startYRef.current - clientY;
+
+    if (!pastDeadZoneRef.current) {
+      if (Math.abs(totalDelta) < DEAD_ZONE) return;
+      pastDeadZoneRef.current = true;
+      startYRef.current = clientY;
+      return;
+    }
+
+    const rawDelta = startYRef.current - clientY;
+    startYRef.current = clientY;
+
+    const absDelta = Math.abs(rawDelta);
+    const scaledDelta = Math.sign(rawDelta) * Math.pow(absDelta, 1.15) * SENSITIVITY_BASE;
+
+    const range = max - min;
+    const newVal = Math.round(Math.min(max, Math.max(min, valueRef.current + scaledDelta * (range / 100))));
+    onChangeRef.current(newVal);
+  }, [min, max]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    const v = valueRef.current;
+    if (v <= min + 3) onChangeRef.current(min);
+    else if (v >= max - 3) onChangeRef.current(max);
+  }, [min, max]);
+
+  const handleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      onChangeRef.current(defaultValue);
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+    lastTapRef.current = now;
+  }, [defaultValue]);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    dragRef.current = { startY: e.clientY, startVal: value };
+    startYRef.current = e.clientY;
+    pastDeadZoneRef.current = false;
+    setIsDragging(true);
 
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const delta = dragRef.current.startY - ev.clientY;
-      const range = max - min;
-      const newVal = Math.round(
-        Math.min(max, Math.max(min, dragRef.current.startVal + (delta / 120) * range))
-      );
-      onChange(newVal);
+    const onMove = (ev: MouseEvent) => handleDragMove(ev.clientY);
+    const onUp = () => {
+      handleDragEnd();
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
     };
 
-    const handleMouseUp = () => {
-      dragRef.current = null;
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [handleDragMove, handleDragEnd]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let dragging = false;
+
+    const onTouchStart = (e: TouchEvent) => {
+      dragging = true;
+      startYRef.current = e.touches[0].clientY;
+      pastDeadZoneRef.current = false;
+      setIsDragging(true);
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  }, [value, min, max, onChange]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    dragRef.current = { startY: touch.clientY, startVal: value };
-
-    const handleTouchMove = (ev: TouchEvent) => {
-      if (!dragRef.current) return;
-      const touch = ev.touches[0];
-      const delta = dragRef.current.startY - touch.clientY;
-      const range = max - min;
-      const newVal = Math.round(
-        Math.min(max, Math.max(min, dragRef.current.startVal + (delta / 120) * range))
-      );
-      onChange(newVal);
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragging) return;
+      e.preventDefault();
+      handleDragMove(e.touches[0].clientY);
     };
 
-    const handleTouchEnd = () => {
-      dragRef.current = null;
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
+    const onTouchEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      handleDragEnd();
     };
 
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd);
-  }, [value, min, max, onChange]);
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [handleDragMove, handleDragEnd]);
 
   return (
-    <div className="flex flex-col items-center gap-1.5 select-none" ref={containerRef}>
+    <div className="flex flex-col items-center gap-1.5 select-none">
       <span
         className="font-data text-[9px] uppercase tracking-[4px]"
         style={{ color: "var(--text-tertiary)" }}
@@ -107,9 +161,10 @@ export default function VibeKnob({
       </span>
 
       <div
+        ref={containerRef}
         className="relative w-20 h-20 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
+        onClick={handleTap}
         style={{ touchAction: "none" }}
       >
         <svg className="absolute inset-0" viewBox="0 0 80 80" fill="none">
@@ -136,8 +191,12 @@ export default function VibeKnob({
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[52px] h-[52px] rounded-full"
           style={{
             background: "linear-gradient(145deg, #1a1a1a, #0d0d0d)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+            border: `1px solid ${isDragging ? "rgba(212,175,55,0.25)" : "rgba(255,255,255,0.07)"}`,
+            boxShadow: isDragging
+              ? "0 0 12px rgba(212,175,55,0.1), inset 0 1px 0 rgba(255,255,255,0.04)"
+              : "0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+            transform: isDragging ? "scale(1.06)" : "scale(1)",
+            transition: "transform 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out",
           }}
         >
           <div
