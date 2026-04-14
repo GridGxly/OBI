@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 import { usePlayer } from "@/context/PlayerContext";
@@ -41,15 +41,24 @@ export default function NowPlayingBar() {
     setProgress,
     setCurrentTime,
     setDuration,
+    getFrequencyData,
+    initializeAnalyser,
   } = usePlayer();
 
   const [bars] = useState(() => generateBars(100));
   const [isMuted, setIsMuted] = useState(false);
   const [prevVolume, setPrevVolume] = useState(0.8);
+  const animFrameRef = useRef<number>(0);
+  const [freqBars, setFreqBars] = useState<number[]>(new Array(48).fill(0));
 
   const currentIdx = currentTrack ? queue.findIndex((t) => t.id === currentTrack.id) : -1;
   const canSkipNext = currentIdx >= 0 && currentIdx < queue.length - 1;
   const canSkipPrev = currentIdx > 0 || (currentTime > 3);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    initializeAnalyser();
+  }, [audioRef, currentTrack, initializeAnalyser]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -162,6 +171,59 @@ export default function NowPlayingBar() {
     const pct = ((e.clientX - rect.left) / rect.width) * 100;
     seek(Math.max(0, Math.min(100, pct)));
   }, [seek]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const generateSimulatedBars = (time: number): number[] => {
+      const bars: number[] = [];
+      for (let i = 0; i < 48; i++) {
+        const freqCurve = Math.max(0, 1 - (i / 48) * 0.7);
+        const phase = i * 0.37;
+        const wave1 = Math.sin(time * 2.13 + phase) * 0.3;
+        const wave2 = Math.sin(time * 3.71 + phase * 1.4) * 0.2;
+        const wave3 = Math.sin(time * 1.17 + phase * 0.6) * 0.15;
+        const combined = 0.35 + wave1 + wave2 + wave3;
+        bars.push(Math.max(0.05, Math.min(1, combined * freqCurve)));
+      }
+      return bars;
+    };
+
+    const animate = () => {
+      if (!isActive) return;
+
+      if (!isPlaying) {
+        setFreqBars(prev => {
+          const decayed = prev.map(v => v * 0.9);
+          if (decayed.some(v => v > 0.01)) {
+            animFrameRef.current = requestAnimationFrame(animate);
+          }
+          return decayed;
+        });
+        return;
+      }
+
+      const data = getFrequencyData();
+      const sum = data.reduce((a, b) => a + b, 0);
+
+      if (sum > 0) {
+        const newBars = Array.from(data.slice(0, 48)).map(v => v / 255);
+        setFreqBars(newBars);
+      } else {
+        const time = performance.now() / 1000;
+        setFreqBars(generateSimulatedBars(time));
+      }
+
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      isActive = false;
+      cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [isPlaying, getFrequencyData]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -305,30 +367,23 @@ export default function NowPlayingBar() {
 
                   <svg
                     className="flex-1 h-4 cursor-pointer"
-                    viewBox={`0 0 ${bars.length * 3} 20`}
+                    viewBox={`0 0 ${48 * 5} 28`}
                     preserveAspectRatio="none"
                     onClick={handleBarClick}
                   >
-                    {bars.map((h, i) => {
-                      const x = i * 3;
-                      const barH = h * 14;
-                      const y = (20 - barH) / 2;
-                      const fillPct = (i / bars.length) * 100;
-                      const isFilled = fillPct < progress;
+                    {freqBars.map((amplitude, i) => {
+                      const barHeight = Math.max(2, amplitude * 26);
+                      const isPast = (i / 48) * 100 < progress;
                       return (
                         <rect
                           key={i}
-                          x={x}
-                          y={y}
-                          width={2}
-                          height={barH}
-                          rx={0.5}
-                          fill={
-                            isFilled
-                              ? "rgba(212,175,55,0.85)"
-                              : `rgba(255,255,255,${0.04 + h * 0.08})`
-                          }
-                          style={{ transition: "fill 0.1s" }}
+                          x={i * 5}
+                          y={14 - barHeight / 2}
+                          width={3}
+                          height={barHeight}
+                          rx={1}
+                          fill={isPast ? "rgba(212,175,55,0.9)" : "rgba(255,255,255,0.15)"}
+                          style={{ transition: "height 0.05s linear, y 0.05s linear" }}
                         />
                       );
                     })}
