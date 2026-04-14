@@ -43,7 +43,7 @@ export default function KeyboardHint() {
           <div className="flex items-center gap-6 font-data text-[9px] uppercase tracking-[2px]"
             style={{ color: "var(--accent-dim)" }}>
             <span><kbd className="px-1.5 py-0.5 rounded bg-white/5 text-[8px] mr-1">Space</kbd> Play/Pause</span>
-            <span><kbd className="px-1.5 py-0.5 rounded bg-white/5 text-[8px] mr-1">← →</kbd> Seek</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-white/5 text-[8px] mr-1">← →</kbd> Skip</span>
             <span><kbd className="px-1.5 py-0.5 rounded bg-white/5 text-[8px] mr-1">↑ ↓</kbd> Volume</span>
             <span><kbd className="px-1.5 py-0.5 rounded bg-white/5 text-[8px] mr-1">M</kbd> Mute</span>
           </div>

@@ -7,10 +7,10 @@ interface ScanningOverlayProps {
 }
 
 const PHASES = [
-  "Reading waveform...",
-  "Matching timbre...",
-  "Scanning texture...",
-  "Ranking results...",
+  "Listening...",
+  "Comparing sounds...",
+  "Finding matches...",
+  "Almost there...",
 ];
 
 const TOTAL_DURATION = 3200;
