@@ -1,29 +1,27 @@
 """
 Purpose:
-- Load seed audio files and insert into Qdrant
-
-Current implementation:
-- Assumes a local folder of seed audio files
-- Generates embeddings using embed.py
-- Uploads them into a Qdrant collection
+- Load seed audio files (now from Hugging Face dataset) and insert into Qdrant
 """
 
 import os
 import uuid
+import tempfile
+import soundfile as sf
+
+from datasets import load_dataset  # ✅ NEW
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
 from embed import embed_audio, EMBEDDING_DIM
 
-
-SEED_FOLDER = "seed_data"
 COLLECTION_NAME = "beats"
 
 
 def main():
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
+    client = QdrantClient(
+        url=os.getenv("QDRANT_URL"),
+        api_key=os.getenv("QDRANT_API_KEY"),
+    )
 
     # Create collection if it doesn't exist
     client.recreate_collection(
@@ -34,35 +32,52 @@ def main():
         ),
     )
 
+    # hf dataset
+    dataset = load_dataset("fdaudens/samples-hip-hop", split="train")
+
     points = []
 
-    for filename in os.listdir(SEED_FOLDER):
-        if not filename.lower().endswith((".wav", ".mp3")):
-            continue
+    for item in dataset:
 
-        path = os.path.join(SEED_FOLDER, filename)
+        audio = item["audio"]
 
-        print(f"Embedding {filename}...")
-        vector = embed_audio(path)
+        # CASE 1: file path exists
+        if "path" in audio and audio["path"]:
+            vector = embed_audio(audio["path"])
+
+        # CASE 2: raw audio array
+        else:
+            with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+                sf.write(f.name, audio["array"], audio["sampling_rate"])
+                vector = embed_audio(f.name)
 
         point = PointStruct(
             id=str(uuid.uuid4()),
             vector=vector.tolist(),
             payload={
-                "filename": filename,
-                "path": path,
+                "source": "huggingface",
+                "label": item.get("label"),
             },
         )
 
         points.append(point)
 
+        # batch upload
+        if len(points) >= 50:
+            client.upsert(
+                collection_name=COLLECTION_NAME,
+                points=points,
+            )
+            points = []
+
+    # final flush
     if points:
         client.upsert(
             collection_name=COLLECTION_NAME,
             points=points,
         )
 
-    print(f"Indexed {len(points)} files into Qdrant.")
+    print(f"Indexed dataset into Qdrant.")
 
 
 if __name__ == "__main__":
