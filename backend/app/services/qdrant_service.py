@@ -6,21 +6,20 @@ from typing import List
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
-import os
-current_dir = os.path.dirname(os.path.abspath(__file__))
-QDRANT_PATH = os.path.abspath(os.path.join(current_dir, "../../../ml/qdrant_storage"))
+from core.config import settings
 
 COLLECTION_NAME = "beats"
 VECTOR_SIZE = 512
 
-client = QdrantClient(path=QDRANT_PATH)
+client = QdrantClient(
+    url=settings.QDRANT_URL,
+    api_key=settings.QDRANT_API_KEY,
+)
 
 
 def ensure_collection():
-    collections = client.get_collections()
-    names = [c.name for c in collections.collections]
-    if COLLECTION_NAME not in names:
-        client.recreate_collection(
+    if not client.collection_exists(COLLECTION_NAME):
+        client.create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=qmodels.VectorParams(
                 size=VECTOR_SIZE,

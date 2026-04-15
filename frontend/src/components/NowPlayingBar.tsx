@@ -301,11 +301,6 @@ export default function NowPlayingBar() {
                     {currentTrack.title}
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    {currentTrack.bpm && (
-                      <span className="font-data text-[9px] font-bold" style={{ color: "var(--accent-dim)" }}>
-                        {currentTrack.bpm} BPM
-                      </span>
-                    )}
                     {currentTrack.tags && currentTrack.tags.length > 0 && (
                       <span className="font-data text-[9px] text-white/25 truncate">
                         {currentTrack.tags.slice(0, 2).join(" · ")}

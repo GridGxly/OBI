@@ -1,16 +1,20 @@
-import numpy as np
-import librosa
+import sys
+import os
+
+# Resolve ml/ directory so embed.py (CLAP) can be imported from the backend
+_ML_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../ml"))
+if _ML_PATH not in sys.path:
+    sys.path.insert(0, _ML_PATH)
+
 from typing import List
 
+
 async def get_embedding(audio_path: str) -> List[float]:
-    # Extract MFCC using librosa (temporarily swapped as requested)
-    y, sr = librosa.load(audio_path, sr=48000, mono=True)
-    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=128)
-    
-    embedding = np.mean(mfccs.T, axis=0)
-    padded = np.pad(embedding, (0, 512 - 128), 'constant')
-    normalized_embed = padded / (np.linalg.norm(padded) + 1e-10)
-    
-    return normalized_embed.tolist()
-
-
+    """
+    Generate a 512-dim CLAP audio embedding for the given audio file.
+    Delegates to ml/embed.py so the embedding space is identical to
+    what database_loader.py and embed_text() produce.
+    """
+    from embed import embed_audio  # lazy import — avoids loading torch at startup
+    vector = embed_audio(audio_path)
+    return vector.tolist()

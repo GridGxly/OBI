@@ -12,7 +12,7 @@ router = APIRouter()
 @router.post("/")
 async def embed_audio(
     file: UploadFile = File(...),
-    top_k: int = Query(5, ge=1, le=50),
+    top_k: int = Query(20, ge=1, le=100),
 ):
     # 1) Save uploaded file
     saved_path = await save_audio_file(file)
