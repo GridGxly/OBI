@@ -1,21 +1,35 @@
+# Core API
 fastapi
 uvicorn[standard]
 httpx
 python-multipart
+
+# Database
 sqlalchemy
 aiosqlite
 asyncpg
+
+# Auth
 pydantic[email]
 pydantic-settings
 passlib[bcrypt]
 python-jose[cryptography]
+
+# Vector DB
 qdrant-client
+
+# ML / Audio
+# torch and torchaudio installed separately via nixpacks.toml (CPU-only wheel)
 transformers
 librosa
 soundfile
 numpy
 datasets
 pandas
+
+# Utilities
 python-dotenv
+
+# Testing
 pytest
 pytest-asyncio
