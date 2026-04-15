@@ -5,8 +5,8 @@ nixPkgs = ["python311", "ffmpeg"]
 cmds = [
   # Use the venv pip directly — avoids the externally-managed-environment error
   "/opt/venv/bin/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu",
-  "/opt/venv/bin/pip install -r backend/app/requirements.txt"
+  "/opt/venv/bin/pip install -r app/requirements.txt"
 ]
 
 [start]
-cmd = "cd backend/app && uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "cd app && uvicorn main:app --host 0.0.0.0 --port $PORT"
