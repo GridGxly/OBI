@@ -1,5 +1,7 @@
 fastapi
-uvicorn
+uvicorn[standard]
+httpx
+qdrant-client
 python-multipart
 sqlalchemy
 aiosqlite
@@ -8,9 +10,14 @@ pydantic[email]
 pydantic-settings
 passlib[bcrypt]
 python-jose[cryptography]
-qdrant-client
 datasets
 librosa
 soundfile
 numpy
 torch
+pytest
+pytest-asyncio
+torchaudio
+transformers
+pandas
+torchcodec
