@@ -9,7 +9,7 @@ from qdrant_client.http import models as qmodels
 from core.config import settings
 
 COLLECTION_NAME = "beats"
-VECTOR_SIZE = 512
+VECTOR_SIZE = 512  # laion/clap-htsat-unfused projected embedding size
 
 client = QdrantClient(
     url=settings.QDRANT_URL,

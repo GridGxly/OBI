@@ -38,7 +38,7 @@ def main():
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(
-            size=EMBEDDING_DIM,
+            size=EMBEDDING_DIM,  # 512 — laion/clap-htsat-unfused projected embedding
             distance=Distance.COSINE,
         ),
     )

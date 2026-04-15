@@ -54,7 +54,7 @@ def main():
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=qmodels.VectorParams(
-            size=512,
+            size=512,  # laion/clap-htsat-unfused projected embedding size
             distance=qmodels.Distance.COSINE,
         ),
     )

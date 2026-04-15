@@ -44,13 +44,13 @@ async def search_audio(
             "nearest_neighbors": neighbors,
         }
     except Exception as e:
-        print(f"ML processing unavailable. Returning mock schema payload. Error: {e}")
+        import traceback
+        print(f"Search error: {e}")
+        traceback.print_exc()
         return {
             "query_path": "error",
-            "nearest_neighbors": [
-                {"id": "mock_abc_1", "score": 98.4},
-                {"id": "mock_xyz_2", "score": 85.1},
-            ]
+            "nearest_neighbors": [],
+            "error": str(e),
         }
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 import librosa
 
-EMBEDDING_DIM = 512
+EMBEDDING_DIM = 512  # laion/clap-htsat-unfused projected embedding size
 
 _clap_model = None
 _clap_processor = None
@@ -12,8 +12,7 @@ def get_clap_models():
     if _clap_model is None:
         import torch
         from transformers import ClapProcessor, ClapModel
-        device = "cpu"
-        _clap_model = ClapModel.from_pretrained("laion/clap-htsat-unfused").to(device)
+        _clap_model = ClapModel.from_pretrained("laion/clap-htsat-unfused").to("cpu")
         _clap_processor = ClapProcessor.from_pretrained("laion/clap-htsat-unfused")
     return _clap_model, _clap_processor
 
@@ -34,19 +33,16 @@ def embed_audio(audio_path: str) -> np.ndarray:
     with torch.no_grad():
         outputs = model.get_audio_features(**inputs)
 
-    embedding = outputs[0].cpu().numpy()
-    embedding = np.asarray(embedding).reshape(-1)
+    # get_audio_features returns a tensor [batch, embed_dim] directly
+    if hasattr(outputs, "pooler_output"):
+        tensor = outputs.pooler_output
+    elif hasattr(outputs, "last_hidden_state"):
+        tensor = outputs.last_hidden_state[:, 0, :]
+    else:
+        tensor = outputs  # already a plain tensor
 
-    # 🔥 HARD FIX: enforce correct size
-    if embedding.shape[0] != EMBEDDING_DIM:
-        embedding = embedding[:EMBEDDING_DIM] if embedding.shape[0] > EMBEDDING_DIM else np.pad(
-            embedding,
-            (0, EMBEDDING_DIM - embedding.shape[0]),
-            "constant"
-        )
-
+    embedding = tensor[0].cpu().numpy().flatten()
     embedding = embedding / (np.linalg.norm(embedding) + 1e-10)
-
     return embedding
 
 
@@ -64,19 +60,16 @@ def embed_text(text: str) -> np.ndarray:
     with torch.no_grad():
         outputs = model.get_text_features(**inputs)
 
-    embedding = outputs[0].cpu().numpy()
-    embedding = np.asarray(embedding).reshape(-1)
+    # get_text_features returns a tensor [batch, embed_dim] directly
+    if hasattr(outputs, "pooler_output"):
+        tensor = outputs.pooler_output
+    elif hasattr(outputs, "last_hidden_state"):
+        tensor = outputs.last_hidden_state[:, 0, :]
+    else:
+        tensor = outputs  # already a plain tensor
 
-    # 🔥 SAME SAFETY FIX
-    if embedding.shape[0] != EMBEDDING_DIM:
-        embedding = embedding[:EMBEDDING_DIM] if embedding.shape[0] > EMBEDDING_DIM else np.pad(
-            embedding,
-            (0, EMBEDDING_DIM - embedding.shape[0]),
-            "constant"
-        )
-
+    embedding = tensor[0].cpu().numpy().flatten()
     embedding = embedding / (np.linalg.norm(embedding) + 1e-10)
-
     return embedding
 
 
@@ -89,3 +82,4 @@ if __name__ == "__main__":
 
     vec = embed_audio(sys.argv[1])
     print("Embedding shape:", vec.shape)
+    print("First 5 values:", vec[:5])
