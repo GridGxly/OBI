@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from routers import embed, search, auth, upload
+from routers import embed, search, auth, upload, users
+from core.database import init_db
 
 app = FastAPI(title="Obi Backend")
 
@@ -18,18 +18,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup():
+    await init_db()
+
 app.include_router(embed.router, prefix="/embed", tags=["embed"])
 app.include_router(search.router, prefix="/search", tags=["search"])
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(auth.router)   # prefix already defined in router
+app.include_router(users.router)  # prefix already defined in router
 app.include_router(upload.router, prefix="/upload", tags=["upload"])
-
-import os
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-os.makedirs(static_dir, exist_ok=True)
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
-
