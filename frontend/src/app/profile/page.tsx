@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { usePlayer } from "@/context/PlayerContext";
 import { SavedSound } from "@/types/auth";
 
-type SortOption = "recent" | "match" | "bpm";
+type SortOption = "recent" | "match";
 
 export default function ProfilePage() {
   const { user, isLoading, logout, removeSavedSound } = useAuth();
@@ -46,8 +46,6 @@ export default function ProfilePage() {
         return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
       case "match":
         return (b.matchPercent ?? 0) - (a.matchPercent ?? 0);
-      case "bpm":
-        return (a.bpm ?? 0) - (b.bpm ?? 0);
       default:
         return 0;
     }
@@ -286,7 +284,7 @@ export default function ProfilePage() {
                     border: showSortMenu ? "1px solid rgba(255,255,255,0.08)" : "1px solid transparent",
                   }}
                 >
-                  Sort: {sortBy === "recent" ? "Recent" : sortBy === "match" ? "Closeness" : "BPM"}
+                  Sort: {sortBy === "recent" ? "Recent" : "Closeness"}
                   <ChevronDown size={10} style={{ transform: showSortMenu ? "rotate(180deg)" : "none", transition: "transform 200ms ease" }} />
                 </button>
 
@@ -309,7 +307,6 @@ export default function ProfilePage() {
                       {([
                         { key: "recent" as SortOption, label: "Recent" },
                         { key: "match" as SortOption, label: "Closeness" },
-                        { key: "bpm" as SortOption, label: "BPM" },
                       ]).map((option) => (
                         <button
                           key={option.key}
@@ -462,11 +459,6 @@ export default function ProfilePage() {
                           {sound.title}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          {sound.bpm && (
-                            <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }}>
-                              {sound.bpm} bpm
-                            </span>
-                          )}
                           {sound.tags.slice(0, 3).map((tag) => (
                             <span
                               key={tag}

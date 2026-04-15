@@ -1311,13 +1311,8 @@ export default function Home() {
                     <MatchArc score={result.score} size={48} />
                   </div>
 
-                  {(result.bpm || result.tags || result.year) && (
+                  {(result.tags || result.year) && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {result.bpm && (
-                        <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }} title="beats per minute">
-                          {result.bpm} bpm
-                        </span>
-                      )}
                       {result.tags?.map((tag) => (
                         <span
                           key={tag}
