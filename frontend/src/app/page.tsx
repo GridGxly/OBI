@@ -17,6 +17,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import ScanningOverlay from "@/components/ScanningOverlay";
 
+
 type SearchResult = {
   id: string;
   title: string;
@@ -115,7 +116,7 @@ export default function Home() {
       formData.append("warmth", String(filters.warmth));
       formData.append("crunch", String(filters.crunch));
 
-      const res = await fetch("http://localhost:8000/search/?top_k=5", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search/?top_k=5`, {
         method: "POST",
         body: formData,
       });
@@ -125,7 +126,7 @@ export default function Home() {
 
       const realResults: SearchResult[] = [];
       for (const neighbor of pipelineData.nearest_neighbors || []) {
-        const metaRes = await fetch(`http://localhost:8000/search/results/${neighbor.id}`);
+        const metaRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search/results/${neighbor.id}`);
         if (metaRes.ok) {
           const meta = await metaRes.json();
           realResults.push({
@@ -382,7 +383,7 @@ export default function Home() {
       formData.append("warmth", String(filters.warmth));
       formData.append("crunch", String(filters.crunch));
 
-      const uploadRes = await fetch("http://localhost:8000/search/?top_k=5", {
+      const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search/?top_k=5`, {
         method: "POST",
         body: formData,
       });
@@ -392,7 +393,7 @@ export default function Home() {
       
       const realResults = [];
       for (const neighbor of pipelineData.nearest_neighbors || []) {
-        const metaRes = await fetch(`http://localhost:8000/search/results/${neighbor.id}`);
+        const metaRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/search/results/${neighbor.id}`);
         if(metaRes.ok) {
            const meta = await metaRes.json();
            realResults.push({
