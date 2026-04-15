@@ -18,7 +18,7 @@ async def search_audio(
     dust: Optional[int] = Form(0),
     warmth: Optional[int] = Form(0),
     crunch: Optional[int] = Form(0),
-    top_k: int = Query(5, ge=1, le=50),
+    top_k: int = Query(20, ge=1, le=100),
 ):
     try:
         if audio and audio.filename:
@@ -34,8 +34,11 @@ async def search_audio(
             return {"nearest_neighbors": []}
 
         neighbors = search_neighbors(embedding, top_k=top_k)
+        # Convert raw cosine similarity (0.0–1.0) to 0–100 percentage
+        for n in neighbors:
+            n["score"] = round(n["score"] * 100, 1)
         print(f"ML Search success! Found {len(neighbors)} neighbors.")
-        
+
         return {
             "query_path": saved_path,
             "nearest_neighbors": neighbors,

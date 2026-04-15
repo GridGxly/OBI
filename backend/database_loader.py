@@ -1,56 +1,57 @@
-ds_full = load_dataset("fdaudens/samples-hip-hop", split="train", token=os.getenv("HF_TOKEN"))
-print(len(ds_full))
-print(ds_full.features)
+import os
+import sys
+import uuid
+import io
+
+import librosa
+import soundfile as sf
+import numpy as np
+
 from datasets import load_dataset, Audio
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from dotenv import load_dotenv
-import pandas as pd
-from huggingface_hub import login
-import librosa
-import numpy as np
-import os
-import uuid
-import io
 
-load_dotenv()
+# Load .env from this file's directory (OBI/backend/app/.env)
+load_dotenv(os.path.join(os.path.dirname(__file__), "app/.env"))
 
-def process_audio(array, sr):
-    # Stabilized API Audio Process (512-Dim Librosa Math Bypass)
-    array = array.astype(np.float32)
-    
-    # Standardize sample rate for MFCC math
-    if sr != 48000:
-        array = librosa.resample(array, orig_sr=sr, target_sr=48000)
-        
-    mfccs = librosa.feature.mfcc(y=array, sr=48000, n_mfcc=128)
-    embedding = np.mean(mfccs.T, axis=0)
-    
-    padded = np.pad(embedding, (0, 512 - 128), 'constant')
-    normalized = padded / (np.linalg.norm(padded) + 1e-10)
-    
-    return normalized.tolist()
+# Make ml/ importable so we can use the same CLAP embed_audio as the search router
+_ML_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../ml"))
+if _ML_PATH not in sys.path:
+    sys.path.insert(0, _ML_PATH)
+
+from embed import embed_audio  # CLAP — same embedding space as search queries
+
 
 def main():
     print("Loading HuggingFace Hip-Hop dataset...")
+
+    hf_token = os.getenv("HF_TOKEN")
+    qdrant_url = os.getenv("QDRANT_URL")
+    qdrant_key = os.getenv("QDRANT_API_KEY")
+
+    if not qdrant_url or not qdrant_key:
+        raise RuntimeError("QDRANT_URL and QDRANT_API_KEY must be set in backend/app/.env")
+
     try:
-        ds_full = load_dataset("fdaudens/samples-hip-hop", split="train", token=os.getenv("HF_TOKEN"))
-        # Force decode=False to mathematically bypass the Torchcodec crash across all macOS devices!
+        ds_full = load_dataset(
+            "fdaudens/samples-hip-hop",
+            split="train",
+            token=hf_token,
+        )
+        # decode=False → get raw bytes, avoids torchcodec crash on macOS/Windows
         ds_full = ds_full.cast_column("audio", Audio(decode=False))
     except Exception as e:
         print(f"Failed to load HF Dataset: {e}")
         return
 
-    # Use OS Path dynamic logic to bypass Docker requirement locally
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    qdrant_path = os.path.abspath(os.path.join(current_dir, "../ml/qdrant_storage"))
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
 
-    print(f"Connecting to Local Qdrant Database at {qdrant_path}")
-    client = QdrantClient(path=qdrant_path)
     COLLECTION_NAME = "beats"
 
-    # Reset collection configurations to default 512 dimensions for exact matching
-    client.recreate_collection(
+    if client.collection_exists(COLLECTION_NAME):
+        client.delete_collection(COLLECTION_NAME)
+    client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=qmodels.VectorParams(
             size=512,
@@ -59,57 +60,65 @@ def main():
     )
 
     points = []
-    print(f"Executing deep embedding initialization for {len(ds_full)} elements...")
-    
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    static_output_dir = os.path.join(current_dir, "app/static")
+    os.makedirs(static_output_dir, exist_ok=True)
+
     for i, item in enumerate(ds_full):
         try:
             audio_data = item.get("audio", {})
             audio_bytes = audio_data.get("bytes")
-            
-            # Securely decode bytes outside of HF architecture using pure librosa + io mapping
+
             if audio_bytes:
                 y, sr = librosa.load(io.BytesIO(audio_bytes), sr=48000, mono=True)
             else:
                 y, sr = librosa.load(audio_data.get("path"), sr=48000, mono=True)
-            
-            # The HF dataset metadata path or generic ID
-            filename = audio_data.get("path", f"hiphop_sample_{i}.wav")
-            if filename and filename.startswith("fdaudens"): 
-                filename = filename.split("/")[-1] # Clean filename
-            if not filename.endswith(".wav"):
-                filename += ".wav"
-                
-            # Synthesize physically playable file for Front-End Browser Streaming!
-            import soundfile as sf
-            static_output_dir = os.path.join(current_dir, "app/static")
-            os.makedirs(static_output_dir, exist_ok=True)
-            
+
+            # Clean filename: strip any existing extension, always save as .wav
+            raw_name = audio_data.get("path") or f"hiphop_sample_{i}"
+            base_name = os.path.splitext(os.path.basename(raw_name))[0]
+            filename = f"{base_name}.wav"
+
+            # Write decoded audio to static dir so FastAPI /static can serve it
             file_destination = os.path.join(static_output_dir, filename)
             sf.write(file_destination, y, sr)
-            
-            # Configure exact internal URI string that matches the dynamic FastAPI Root parameter!
-            streaming_url = f"http://localhost:8000/static/{filename}"
-            
-            vector = process_audio(y, sr)
-            
-            point = qmodels.PointStruct(
-                id=str(uuid.uuid4()),
-                vector=vector,
-                payload={"filename": filename, "source": "HF/fdaudens", "path": streaming_url}
-            )
-            points.append(point)
 
-            if len(points) >= 100:
+            streaming_url = f"http://localhost:8000/static/{filename}"
+
+            # Use CLAP embed_audio — same model/space as embed_text and search router
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                sf.write(tmp.name, y, sr)
+                vector = embed_audio(tmp.name).tolist()
+            os.unlink(tmp.name)
+
+            points.append(
+                qmodels.PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=vector,
+                    payload={
+                        "filename": filename,
+                        "source": "HF/fdaudens",
+                        "path": streaming_url,
+                        "label": item.get("label"),
+                    },
+                )
+            )
+
+            if len(points) >= 50:
                 client.upsert(collection_name=COLLECTION_NAME, points=points)
-                print(f"Successfully upserted {i + 1} vectors into Qdrant...")
+                print(f"Upserted {i + 1} vectors into cloud Qdrant...")
                 points = []
+
         except Exception as e:
-            print(f"Skipping index {i} due to structural error: {e}")
+            print(f"Skipping index {i}: {e}")
 
     if points:
         client.upsert(collection_name=COLLECTION_NAME, points=points)
-        
-    print("FINISHED: Successfully populated entirely independent local database with HuggingFace Arrays!")
+
+    print("FINISHED: Uploaded dataset to Qdrant Cloud with CLAP embeddings!")
+
 
 if __name__ == "__main__":
     main()
