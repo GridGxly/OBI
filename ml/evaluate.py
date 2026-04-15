@@ -19,7 +19,7 @@ COLLECTION_NAME = "beats"
 def evaluate(query_path: str, top_k: int = 5):
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    client = QdrantClient(path=os.path.join(current_dir, "qdrant_storage"))
+    client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
 
     query_vector = embed_audio(query_path)
 

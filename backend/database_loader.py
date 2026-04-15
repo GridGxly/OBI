@@ -1,7 +1,12 @@
+ds_full = load_dataset("fdaudens/samples-hip-hop", split="train", token=os.getenv("HF_TOKEN"))
+print(len(ds_full))
+print(ds_full.features)
 from datasets import load_dataset, Audio
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from dotenv import load_dotenv
+import pandas as pd
+from huggingface_hub import login
 import librosa
 import numpy as np
 import os
