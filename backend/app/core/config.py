@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    QDRANT_API_KEY: str
+    QDRANT_URL: str
+    HF_TOKEN: str
+    NEXT_PUBLIC_BACKEND_URL: str
+
     class Config:
         env_file = ".env"
 
