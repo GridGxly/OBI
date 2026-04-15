@@ -10,8 +10,6 @@ pydantic-settings
 passlib[bcrypt]
 python-jose[cryptography]
 qdrant-client
-torch
-torchaudio
 transformers
 librosa
 soundfile

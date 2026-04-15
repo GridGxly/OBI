@@ -1,0 +1,13 @@
+[phases.setup]
+nixPkgs = ["python311", "ffmpeg"]
+
+[phases.install]
+cmds = [
+  # Install CPU-only PyTorch first (saves ~1.5 GB vs default CUDA wheel)
+  "pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu",
+  # Install everything else from PyPI
+  "pip install -r app/requirements.txt"
+]
+
+[start]
+cmd = "cd app && uvicorn main:app --host 0.0.0.0 --port $PORT"
