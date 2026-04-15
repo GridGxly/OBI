@@ -2,10 +2,18 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import DeclarativeBase
 from core.config import settings
 
+# Strip inline comments and the ?ssl=require query param —
+# asyncpg handles SSL via connect_args, not the URL query string
+_db_url = settings.DATABASE_URL.split("#")[0].strip()
+if "?ssl=" in _db_url:
+    _db_url = _db_url.split("?ssl=")[0]
+elif "&ssl=" in _db_url:
+    _db_url = _db_url.replace("&ssl=require", "").replace("&ssl=true", "")
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _db_url,
     echo=False,
-    connect_args={"statement_cache_size": 0},
+    connect_args={"statement_cache_size": 0, "ssl": "require"},
 )
 
 AsyncSessionLocal = async_sessionmaker(
