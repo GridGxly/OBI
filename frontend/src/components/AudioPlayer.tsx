@@ -9,17 +9,24 @@ interface AudioPlayerProps {
   playlist?: Track[];
 }
 
-function generateBars(count: number): number[] {
-  const bars: number[] = [];
-  for (let i = 0; i < count; i++) {
-    bars.push(0.2 + Math.random() * 0.8);
+const seedRandom = (seed: string, i: number): number => {
+  let hash = 0;
+  const str = seed + i.toString();
+  for (let c = 0; c < str.length; c++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(c);
+    hash |= 0;
   }
-  return bars;
-}
+  return (Math.abs(hash) % 100) / 100;
+};
 
 export default function AudioPlayer({ track, playlist }: AudioPlayerProps) {
   const { currentTrack, isPlaying, progress, loadTrack, togglePlay, seek } = usePlayer();
-  const [bars] = useState(() => generateBars(48));
+  const [bars] = useState(() =>
+    Array.from({ length: 48 }, (_, i) => {
+      const h = seedRandom(track.title || "default", i);
+      return Math.max(0.08, h * 0.85 + 0.15);
+    })
+  );
 
   const isCurrentActiveTrack = currentTrack?.id === track.id;
   const isThisPlaying = isCurrentActiveTrack && isPlaying;

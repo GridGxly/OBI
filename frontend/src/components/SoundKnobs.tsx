@@ -4,71 +4,28 @@ import { useRef, useState, useCallback, useEffect } from "react";
 
 type KnobProps = {
   label: string;
-  value: number; // 0–100
+  value: number;
   onChange: (val: number) => void;
   accentColor?: string;
+  defaultValue?: number;
 };
 
-function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
+const DEAD_ZONE = 3;
+const SENSITIVITY_BASE = 0.5;
+
+function Knob({ label, value, onChange, accentColor = "#d4af37", defaultValue = 0 }: KnobProps) {
   const knobRef = useRef<HTMLDivElement>(null);
-  const startYRef = useRef<number>(0);
-  const startValRef = useRef<number>(0);
-  const isDragging = useRef(false);
+  const startYRef = useRef(0);
+  const pastDeadZoneRef = useRef(false);
+  const lastTapRef = useRef(0);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Map 0–100 to -135deg … +135deg
+  valueRef.current = value;
+  onChangeRef.current = onChange;
+
   const angle = -135 + (value / 100) * 270;
-
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      isDragging.current = true;
-      startYRef.current = e.clientY;
-      startValRef.current = value;
-
-      const onMove = (ev: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = startYRef.current - ev.clientY; // drag up = increase
-        const next = Math.min(100, Math.max(0, startValRef.current + delta * 0.8));
-        onChange(Math.round(next));
-      };
-
-      const onUp = () => {
-        isDragging.current = false;
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    },
-    [value, onChange]
-  );
-
-  // Touch support
-  const onTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      isDragging.current = true;
-      startYRef.current = e.touches[0].clientY;
-      startValRef.current = value;
-
-      const onMove = (ev: TouchEvent) => {
-        if (!isDragging.current) return;
-        const delta = startYRef.current - ev.touches[0].clientY;
-        const next = Math.min(100, Math.max(0, startValRef.current + delta * 0.8));
-        onChange(Math.round(next));
-      };
-
-      const onEnd = () => {
-        isDragging.current = false;
-        window.removeEventListener("touchmove", onMove);
-        window.removeEventListener("touchend", onEnd);
-      };
-
-      window.addEventListener("touchmove", onMove, { passive: true });
-      window.addEventListener("touchend", onEnd);
-    },
-    [value, onChange]
-  );
 
   const size = 56;
   const cx = size / 2;
@@ -76,7 +33,6 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
   const r = 22;
   const trackR = 24;
 
-  // Arc path helper
   const polarToXY = (angleDeg: number, radius: number) => {
     const rad = ((angleDeg - 90) * Math.PI) / 180;
     return {
@@ -90,9 +46,97 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
   const fillEnd = polarToXY(angle, trackR);
   const largeArc = angle - -135 > 180 ? 1 : 0;
 
-  // Tick mark position
   const tickInner = polarToXY(angle, r - 7);
   const tickOuter = polarToXY(angle, r - 1);
+
+  const handleDragMove = useCallback((clientY: number) => {
+    const totalDelta = startYRef.current - clientY;
+
+    if (!pastDeadZoneRef.current) {
+      if (Math.abs(totalDelta) < DEAD_ZONE) return;
+      pastDeadZoneRef.current = true;
+      startYRef.current = clientY;
+      return;
+    }
+
+    const rawDelta = startYRef.current - clientY;
+    startYRef.current = clientY;
+
+    const absDelta = Math.abs(rawDelta);
+    const scaledDelta = Math.sign(rawDelta) * Math.pow(absDelta, 1.15) * SENSITIVITY_BASE;
+
+    const newVal = Math.round(Math.min(100, Math.max(0, valueRef.current + scaledDelta)));
+    onChangeRef.current(newVal);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    const v = valueRef.current;
+    if (v <= 3) onChangeRef.current(0);
+    else if (v >= 97) onChangeRef.current(100);
+  }, []);
+
+  const handleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      onChangeRef.current(defaultValue);
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+    lastTapRef.current = now;
+  }, [defaultValue]);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    startYRef.current = e.clientY;
+    pastDeadZoneRef.current = false;
+    setIsDragging(true);
+
+    const onMove = (ev: MouseEvent) => handleDragMove(ev.clientY);
+    const onUp = () => {
+      handleDragEnd();
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [handleDragMove, handleDragEnd]);
+
+  useEffect(() => {
+    const el = knobRef.current;
+    if (!el) return;
+
+    let dragging = false;
+
+    const onTouchStart = (e: TouchEvent) => {
+      dragging = true;
+      startYRef.current = e.touches[0].clientY;
+      pastDeadZoneRef.current = false;
+      setIsDragging(true);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragging) return;
+      e.preventDefault();
+      handleDragMove(e.touches[0].clientY);
+    };
+
+    const onTouchEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      handleDragEnd();
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [handleDragMove, handleDragEnd]);
 
   return (
     <div
@@ -104,7 +148,6 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
         userSelect: "none",
       }}
     >
-      {/* Value readout */}
       <span
         style={{
           fontFamily: "var(--font-data, monospace)",
@@ -117,12 +160,17 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
         {value}
       </span>
 
-      {/* Knob SVG */}
       <div
         ref={knobRef}
         onMouseDown={onMouseDown}
-        onTouchStart={onTouchStart}
-        style={{ cursor: "ns-resize", position: "relative" }}
+        onClick={handleTap}
+        style={{
+          cursor: "ns-resize",
+          position: "relative",
+          touchAction: "none",
+          transform: isDragging ? "scale(1.08)" : "scale(1)",
+          transition: "transform 0.15s ease-out",
+        }}
       >
         <svg
           width={size}
@@ -130,7 +178,6 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
           viewBox={`0 0 ${size} ${size}`}
           style={{ display: "block", overflow: "visible" }}
         >
-          {/* Outer glow ring */}
           <circle
             cx={cx}
             cy={cy}
@@ -138,10 +185,10 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
             fill="none"
             stroke={accentColor}
             strokeWidth={0.5}
-            opacity={0.08}
+            opacity={isDragging ? 0.2 : 0.08}
+            style={{ transition: "opacity 0.15s ease-out" }}
           />
 
-          {/* Track background arc */}
           <path
             d={`M ${arcStart.x} ${arcStart.y} A ${trackR} ${trackR} 0 1 1 ${arcEnd.x} ${arcEnd.y}`}
             fill="none"
@@ -150,7 +197,6 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
             strokeLinecap="round"
           />
 
-          {/* Filled arc (progress) */}
           {value > 0 && (
             <path
               d={`M ${arcStart.x} ${arcStart.y} A ${trackR} ${trackR} 0 ${largeArc} 1 ${fillEnd.x} ${fillEnd.y}`}
@@ -162,17 +208,16 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
             />
           )}
 
-          {/* Knob body */}
           <circle
             cx={cx}
             cy={cy}
             r={r}
             fill="url(#knobGrad)"
-            stroke="rgba(255,255,255,0.07)"
+            stroke={isDragging ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.07)"}
             strokeWidth={1}
+            style={{ transition: "stroke 0.15s ease-out" }}
           />
 
-          {/* Subtle inner ring */}
           <circle
             cx={cx}
             cy={cy}
@@ -182,7 +227,6 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
             strokeWidth={1}
           />
 
-          {/* Tick mark */}
           <line
             x1={tickInner.x}
             y1={tickInner.y}
@@ -194,7 +238,6 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
             opacity={0.9}
           />
 
-          {/* Gradient defs */}
           <defs>
             <radialGradient id="knobGrad" cx="40%" cy="30%" r="70%">
               <stop offset="0%" stopColor="rgba(60,55,45,1)" />
@@ -204,14 +247,13 @@ function Knob({ label, value, onChange, accentColor = "#d4af37" }: KnobProps) {
         </svg>
       </div>
 
-      {/* Label */}
       <span
         style={{
           fontFamily: "var(--font-data, monospace)",
           fontSize: 9,
           letterSpacing: "3px",
           textTransform: "uppercase",
-          color: "var(--text-tertiary, #555)",
+          color: "var(--text-secondary, #999)",
         }}
       >
         {label}
@@ -241,14 +283,13 @@ export default function SoundKnobs({ resultId }: SoundKnobsProps) {
         marginTop: 4,
       }}
     >
-      {/* Divider label */}
       <span
         style={{
           fontFamily: "var(--font-data, monospace)",
           fontSize: 8,
           letterSpacing: "3px",
           textTransform: "uppercase",
-          color: "rgba(255,255,255,0.12)",
+          color: "rgba(255,255,255,0.25)",
           writingMode: "vertical-rl",
           transform: "rotate(180deg)",
           marginRight: 2,
@@ -259,13 +300,12 @@ export default function SoundKnobs({ resultId }: SoundKnobsProps) {
 
       <div style={{ width: "1px", height: 40, background: "rgba(255,255,255,0.05)" }} />
 
-      <Knob label="Dust" value={dust} onChange={setDust} />
+      <Knob label="Dust" value={dust} onChange={setDust} defaultValue={30} />
 
       <div style={{ width: "1px", height: 40, background: "rgba(255,255,255,0.05)" }} />
 
-      <Knob label="Timbre" value={timbre} onChange={setTimbre} />
+      <Knob label="Timbre" value={timbre} onChange={setTimbre} defaultValue={55} />
 
-      {/* Future: reset button placeholder */}
       <div style={{ marginLeft: "auto" }}>
         <button
           onClick={() => { setDust(30); setTimbre(55); }}
@@ -277,12 +317,12 @@ export default function SoundKnobs({ resultId }: SoundKnobsProps) {
             fontSize: 8,
             letterSpacing: "2px",
             textTransform: "uppercase",
-            color: "rgba(255,255,255,0.15)",
+            color: "rgba(255,255,255,0.25)",
             padding: "4px 0",
             transition: "color 0.2s",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(212,175,55,0.6)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.15)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(212,175,55,0.8)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}
         >
           Reset
         </button>

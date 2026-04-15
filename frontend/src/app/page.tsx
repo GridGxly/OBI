@@ -7,6 +7,7 @@ import AudioPlayer from "@/components/AudioPlayer";
 import VibeKnob from "@/components/VibeKnob";
 import ExampleSearches from "@/components/ExampleSearches";
 import SkeletonCard from "@/components/SkeletonCard";
+import MatchArc from "@/components/MatchArc";
 
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
@@ -58,7 +59,18 @@ export default function Home() {
 
   const hasResults = results.length > 0;
   const hasInput = !!query || !!file;
-  const activeMode: "text" | "upload" | "mic" = isRecording ? "mic" : file ? "upload" : "text";
+  
+  const modes = ["text", "upload", "mic"] as const;
+  type Mode = typeof modes[number];
+  const [currentMode, setCurrentMode] = useState<Mode>("text");
+  const [modeDirection, setModeDirection] = useState(0);
+
+  const switchMode = (newMode: Mode) => {
+    const oldIndex = modes.indexOf(currentMode);
+    const newIndex = modes.indexOf(newMode);
+    setModeDirection(newIndex > oldIndex ? 1 : -1);
+    setCurrentMode(newMode);
+  };
 
   const [filters, setFilters] = useState({ dust: 0, warmth: 0, crunch: 0 });
 
@@ -76,7 +88,7 @@ export default function Home() {
     results: SearchResult[];
   }>>([]);
 
-  const handleFindSimilar = (sourceResult: SearchResult) => {
+  const handleFindSimilar = async (sourceResult: SearchResult) => {
     dismiss();
 
     if (results.length > 0 && searchSource) {
@@ -96,13 +108,49 @@ export default function Home() {
     setIsScanning(true);
     setResults([]);
 
-    pendingResultsRef.current = [
-      { id: `s1-${Date.now()}`, title: `Similar: ${sourceResult.title} Variant A`, score: 94, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", bpm: sourceResult.bpm ? sourceResult.bpm + 2 : 90, tags: sourceResult.tags, year: 1975 },
-      { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
-      { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
-      { id: `s4-${Date.now()}`, title: "Forgotten Session Tape #12", score: 73, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", bpm: 102, tags: ["Session", "Tape"], year: 1981 },
-      { id: `s5-${Date.now()}`, title: "Lo-fi Gem - Basement Recording", score: 68, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", bpm: 76, tags: ["Lo-fi", "Basement"], year: 2003 },
-    ];
+    try {
+      const formData = new FormData();
+      formData.append("query", `sounds like ${sourceResult.title}`);
+      formData.append("dust", String(filters.dust));
+      formData.append("warmth", String(filters.warmth));
+      formData.append("crunch", String(filters.crunch));
+
+      const res = await fetch("http://localhost:8000/search/?top_k=5", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Backend rejected similar search");
+      const pipelineData = await res.json();
+
+      const realResults: SearchResult[] = [];
+      for (const neighbor of pipelineData.nearest_neighbors || []) {
+        const metaRes = await fetch(`http://localhost:8000/search/results/${neighbor.id}`);
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          realResults.push({
+            id: meta.id,
+            title: meta.filename || "Unknown Title",
+            score: Math.round(neighbor.score),
+            url: meta.path?.includes("http") ? meta.path : "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            bpm: meta.bpm || undefined,
+            tags: meta.tags || [],
+            year: meta.year || undefined,
+          });
+        }
+      }
+
+      pendingResultsRef.current = realResults.length > 0 ? realResults : [
+        { id: "fallback", title: "No similar sounds found", score: 0, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" }
+      ];
+    } catch (err) {
+      console.warn("Backend not reachable for similar search. Serving fallback...", err);
+      pendingResultsRef.current = [
+        { id: `s1-${Date.now()}`, title: `Similar: ${sourceResult.title} Variant A`, score: 94, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", bpm: sourceResult.bpm ? sourceResult.bpm + 2 : 90, tags: sourceResult.tags, year: 1975 },
+        { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
+        { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
+      ];
+    }
   };
 
   const handleBack = () => {
@@ -258,6 +306,7 @@ export default function Home() {
         const recordedFile = new File([audioBlob], `recording.${extension}`, { type: mimeType });
         setFile(recordedFile);
         setIsFocused(true);
+        setCurrentMode("mic");
         setIsUtilityPanelOpen(true);
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -293,6 +342,7 @@ export default function Home() {
       }
       setFile(selectedFile);
       setIsFocused(true);
+      setCurrentMode("upload");
       setIsUtilityPanelOpen(true);
     }
   };
@@ -418,11 +468,56 @@ export default function Home() {
 
     setFile(droppedFile);
     setIsFocused(true);
+    setCurrentMode("upload");
     showToast(`${droppedFile.name} loaded`, "success");
   };
 
   const ghostBtn: CSSProperties = { background: "none", border: "1px solid #2a2a2a", color: "#666", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", cursor: "pointer" };
   const goldBtn: CSSProperties = { backgroundColor: "#b8a96a", border: "none", color: "#0a0a0a", borderRadius: "6px", padding: "0.4rem 0.9rem", fontSize: "0.68rem", letterSpacing: "0.1rem", fontFamily: "inherit", fontWeight: 600, cursor: "pointer" };
+
+  const resultsContainerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.5,
+      },
+    },
+  };
+
+  const resultCardVariants = {
+    hidden: {
+      opacity: 0,
+      y: 20,
+      scale: 0.98,
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.4,
+        ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
+      },
+    },
+  };
+
+  const modeVariants = {
+    enter: (direction: number) => ({
+      x: direction * 60,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+    },
+    exit: (direction: number) => ({
+      x: direction * -60,
+      opacity: 0,
+      transition: { duration: 0.15 },
+    }),
+  };
 
   return (
     <div
@@ -505,7 +600,7 @@ export default function Home() {
             style={{
               fontSize: hasResults ? 32 : "clamp(48px, 10vw, 80px)",
               letterSpacing: hasResults ? "0.25em" : "0.35em",
-              textShadow: "0 0 60px rgba(212,175,55,0.08)",
+              animation: hasResults ? "none" : "titleGlow 4s ease-in-out infinite",
               transition: "font-size 0.7s cubic-bezier(0.4,0,0.2,1), letter-spacing 0.7s cubic-bezier(0.4,0,0.2,1)",
             }}
             initial={{ opacity: 0, y: 10 }}
@@ -531,7 +626,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              The Sonic Search Engine.
+              Find any sound.
             </motion.p>
             <motion.p
               className="font-display text-sm md:text-base max-w-lg leading-snug mb-6"
@@ -540,8 +635,27 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              Turn hours of crate digging into seconds of discovery. Find the
-              obscure, perfect sounds for your next hit.
+              Describe what you hear, upload a clip, or record something.<br className="hidden sm:block" />
+              We&apos;ll find sounds that match.
+            </motion.p>
+          </div>
+
+          <div
+            style={{
+              maxHeight: hasResults ? 0 : 40,
+              opacity: hasResults ? 0 : 1,
+              overflow: "hidden",
+              transition: "max-height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease",
+            }}
+          >
+            <motion.p
+              className="font-[family-name:var(--font-data)] text-[11px] uppercase tracking-[5px] mt-4 mb-6"
+              style={{ color: "var(--text-secondary)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+            >
+              Drop a sound. Find its twin.
             </motion.p>
           </div>
 
@@ -594,7 +708,7 @@ export default function Home() {
                 style={{ color: "var(--text-primary)" }}
                 placeholder={isRecording ? "Recording in progress…" : file ? "Audio file loaded" : "Describe a sound or vibe…"}
               />
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {query && !isRecording && !file && (
                   <button
                     onClick={(e) => {
@@ -615,6 +729,7 @@ export default function Home() {
                     e.preventDefault();
                     e.stopPropagation();
                     setIsFocused(true);
+                    setCurrentMode("upload");
                     setIsUtilityPanelOpen(true);
                     fileInputRef.current?.click();
                   }}
@@ -636,6 +751,7 @@ export default function Home() {
                       e.preventDefault();
                       e.stopPropagation();
                       setIsFocused(true);
+                      setCurrentMode("mic");
                       setIsUtilityPanelOpen(true);
                       if (isRecording) {
                         stopRecording();
@@ -670,7 +786,7 @@ export default function Home() {
                   className="font-data text-[9px] uppercase tracking-[2px] text-center mt-0"
                   style={{ color: "rgba(255,255,255,0.1)" }}
                 >
-                  Press Enter to search
+                  press enter to search
                 </p>
               </div>
             )}
@@ -795,117 +911,176 @@ export default function Home() {
                 >
                   <div className="flex flex-col gap-3 p-4">
                     <div className="flex items-center justify-center gap-1 mb-1">
-                      {(["text", "upload", "mic"] as const).map((mode) => (
-                        <span
+                      {modes.map((mode) => (
+                        <button
                           key={mode}
-                          className="font-data text-[10px] uppercase py-[5px] px-4 rounded-[3px] transition-all duration-200"
-                          style={{
-                            letterSpacing: "3px",
-                            color: activeMode === mode ? "var(--accent)" : "var(--text-tertiary)",
-                            background: activeMode === mode ? "rgba(212,175,55,0.1)" : "transparent",
-                            border: activeMode === mode ? "1px solid rgba(212,175,55,0.25)" : "1px solid transparent",
-                          }}
+                          onClick={() => switchMode(mode)}
+                          className="relative px-3 py-1.5"
                         >
-                          {mode}
-                        </span>
+                          <span className={`font-data text-[9px] uppercase tracking-[3px] ${
+                            currentMode === mode ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]"
+                          }`}>
+                            {mode}
+                          </span>
+                          {currentMode === mode && (
+                            <motion.div
+                              layoutId="mode-indicator"
+                              className="absolute bottom-0 left-0 right-0 h-[1px]"
+                              style={{ background: "var(--accent)" }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                          )}
+                        </button>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
-                        style={{
-                          border: "1px dashed rgba(255,255,255,0.08)",
-                          background: "transparent",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "rgba(212,175,55,0.25)";
-                          e.currentTarget.style.background = "rgba(212,175,55,0.02)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <Upload size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
-                        <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Upload audio</span>
-                        <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
-                          Drop .wav or .mp3
-                        </span>
-                      </button>
+                    <div className="relative overflow-hidden w-full min-h-[140px]">
+                      <AnimatePresence mode="wait" custom={modeDirection}>
+                        <motion.div
+                          key={currentMode}
+                          custom={modeDirection}
+                          variants={modeVariants}
+                          initial="enter"
+                          animate="center"
+                          exit="exit"
+                          className="w-full flex flex-col items-center justify-center"
+                          style={{ minHeight: "140px" }}
+                        >
+                          {currentMode === "text" && (
+                            <div className="w-full h-full flex items-center justify-center py-6">
+                              {!isRecording && !file && !query && (
+                                <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+                                  Paste a vibe, drop audio, or hold to record.
+                                </p>
+                              )}
+                              {file && (
+                                <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--accent)" }}>
+                                  "{file.name}" is loaded. Switch to Upload to clear it.
+                                </p>
+                              )}
+                              {isRecording && (
+                                <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--accent)" }}>
+                                  Recording in progress. Switch to Mic to stop.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {currentMode === "upload" && (
+                            <div className="w-full flex justify-center">
+                              <div className="w-full max-w-[280px]">
+                                <button
+                                  onClick={() => fileInputRef.current?.click()}
+                                  className="group flex w-full flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
+                                  style={{
+                                    border: "1px dashed rgba(255,255,255,0.08)",
+                                    background: "transparent",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.borderColor = "rgba(212,175,55,0.25)";
+                                    e.currentTarget.style.background = "rgba(212,175,55,0.02)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                                    e.currentTarget.style.background = "transparent";
+                                  }}
+                                >
+                                  <Upload size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
+                                  <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Upload audio</span>
+                                  <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
+                                    Drop .wav or .mp3
+                                  </span>
+                                </button>
+                                
+                                {file && filePreviewUrl && (
+                                  <div className="w-full rounded-xl overflow-hidden mt-3" style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.15)" }}>
+                                    <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+                                      <span className="truncate max-w-[75%] text-sm font-medium flex items-center gap-2" style={{ color: "var(--accent)" }}>
+                                        <Play size={12} className="fill-current shrink-0" />
+                                        {file.name}
+                                      </span>
+                                      <button
+                                        onClick={() => setFile(null)}
+                                        className="font-data text-[9px] uppercase tracking-[2px] font-bold transition-all flex items-center gap-1.5 px-2.5 py-1 rounded flex-shrink-0"
+                                        style={{ color: "var(--text-secondary)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = "#ff6b6b";
+                                          e.currentTarget.style.borderColor = "rgba(255,107,107,0.3)";
+                                          e.currentTarget.style.background = "rgba(255,107,107,0.1)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = "var(--text-secondary)";
+                                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                                          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                                        }}
+                                      >
+                                        <X size={10} />
+                                        Clear File
+                                      </button>
+                                    </div>
+                                    <div className="px-2 pb-2">
+                                      <AudioPlayer track={{ id: "preview", title: file.name, url: filePreviewUrl, tags: ["Upload"] }} />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (isRecording) {
-                            stopRecording();
-                          } else {
-                            startRecording();
-                          }
-                        }}
-                        className="group flex flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
-                        style={{
-                          border: isRecording ? "1px solid rgba(212,175,55,0.4)" : "1px dashed rgba(255,255,255,0.08)",
-                          background: isRecording ? "rgba(212,175,55,0.04)" : "transparent",
-                        }}
-                      >
-                        {isRecording ? (
-                          <div
-                            className="w-[72px] h-[72px] rounded-full flex items-center justify-center"
-                            style={{
-                              border: "2px solid var(--accent)",
-                              background: "rgba(212,175,55,0.06)",
-                              animation: "pulseMic 2s ease-in-out infinite",
-                            }}
-                          >
-                            <Square size={20} style={{ color: "var(--accent)" }} className="fill-current" />
-                          </div>
-                        ) : (
-                          <>
-                            <Mic size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
-                            <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Record mic</span>
-                            <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
-                              Click to record
-                            </span>
-                          </>
-                        )}
-                        {isRecording && (
-                          <span className="font-data text-[11px] mt-1" style={{ color: "var(--accent)" }}>
-                            {formatTime(recordingTime)}
-                          </span>
-                        )}
-                      </button>
+                          {currentMode === "mic" && (
+                            <div className="w-full flex justify-center">
+                              <div className="w-full max-w-[280px]">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    if (isRecording) {
+                                      stopRecording();
+                                    } else {
+                                      startRecording();
+                                    }
+                                  }}
+                                  className="group flex w-full flex-col items-center justify-center gap-1.5 py-7 px-4 rounded-[14px] transition-all duration-200"
+                                  style={{
+                                    border: isRecording ? "1px solid rgba(212,175,55,0.4)" : "1px dashed rgba(255,255,255,0.08)",
+                                    background: isRecording ? "rgba(212,175,55,0.04)" : "transparent",
+                                  }}
+                                >
+                                  {isRecording ? (
+                                    <div
+                                      className="w-[72px] h-[72px] rounded-full flex items-center justify-center"
+                                      style={{
+                                        border: "2px solid var(--accent)",
+                                        background: "rgba(212,175,55,0.06)",
+                                        animation: "pulseMic 2s ease-in-out infinite",
+                                      }}
+                                    >
+                                      <Square size={20} style={{ color: "var(--accent)" }} className="fill-current" />
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <Mic size={28} className="transition-colors duration-200" style={{ color: "var(--text-secondary)" }} />
+                                      <span className="font-display text-[13px]" style={{ color: "var(--text-secondary)" }}>Record mic</span>
+                                      <span className="font-data text-[9px] uppercase" style={{ letterSpacing: "1.5px", color: "var(--text-tertiary)" }}>
+                                        Click to record
+                                      </span>
+                                    </>
+                                  )}
+                                  {isRecording && (
+                                    <span className="font-data text-[11px] mt-1" style={{ color: "var(--accent)" }}>
+                                      {formatTime(recordingTime)}
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      </AnimatePresence>
                     </div>
 
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="audio/wav, audio/mpeg" className="hidden" />
 
-                    {file && filePreviewUrl && (
-                      <div className="w-full rounded-xl overflow-hidden" style={{ background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.15)" }}>
-                        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-                          <span className="truncate max-w-[75%] text-sm font-medium flex items-center gap-2" style={{ color: "var(--accent)" }}>
-                            <Play size={12} className="fill-current shrink-0" />
-                            {file.name}
-                          </span>
-                          <button
-                            onClick={() => setFile(null)}
-                            className="font-data text-[9px] uppercase tracking-widest font-bold transition-colors hover:text-white"
-                            style={{ color: "var(--accent-dim)" }}
-                          >
-                            Clear
-                          </button>
-                        </div>
-                        <div className="px-2 pb-2">
-                          <AudioPlayer track={{ id: "preview", title: file.name, url: filePreviewUrl, tags: ["Upload"] }} />
-                        </div>
-                      </div>
-                    )}
 
-                    {!hasInput && (
-                      <p className="font-display text-xs text-center font-medium tracking-wide" style={{ color: "var(--text-tertiary)" }}>
-                        Paste a vibe, drop audio, or hold to record.
-                      </p>
-                    )}
 
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSearch(); }}
@@ -936,7 +1111,7 @@ export default function Home() {
                         e.currentTarget.style.boxShadow = "none";
                       }}
                     >
-                      {isScanning ? "Scanning…" : "Scan Sound"}
+                      {isScanning ? "Searching…" : "Search"}
                     </button>
                   </div>
                 </motion.div>
@@ -975,9 +1150,9 @@ export default function Home() {
               style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
             >
               <span className="font-data text-[10px] uppercase tracking-[3px]"
-                style={{ color: "rgba(255,255,255,0.08)" }}>Results</span>
+                style={{ color: "rgba(255,255,255,0.18)" }}>Sounds</span>
               <span className="font-data text-[10px] uppercase tracking-[3px]"
-                style={{ color: "rgba(255,255,255,0.08)" }}>Match %</span>
+                style={{ color: "rgba(255,255,255,0.18)" }}>Closeness</span>
             </div>
             {[...Array(4)].map((_, i) => (
               <SkeletonCard key={i} />
@@ -989,9 +1164,10 @@ export default function Home() {
           {hasResults && (
             <motion.div
               className="w-full max-w-2xl flex flex-col gap-4 z-10 relative pb-20 mt-10"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              variants={resultsContainerVariants}
+              initial="hidden"
+              animate="visible"
+              key={results.length > 0 ? results[0]?.id || "results" : "empty"}
             >
               <div className="flex flex-col gap-4 mb-2">
                 {searchSource && (
@@ -1010,10 +1186,10 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    <span>
-                       {searchSource.type === "similar" ? `Similar to: ${searchSource.similarTo}` :
-                        searchSource.type === "text" ? `Query: "${searchSource.query}"` :
-                        searchSource.type === "upload" ? `File: ${searchSource.fileName}` : ""}
+                    <span style={{ color: "var(--text-secondary)" }}>
+                       {searchSource.type === "similar" ? <>Sounds like &ldquo;{searchSource.similarTo}&rdquo;</> :
+                        searchSource.type === "text" ? <>Searching for &ldquo;{searchSource.query}&rdquo;</> :
+                        searchSource.type === "upload" || searchSource.type === "recording" ? "Listening to your recording" : ""}
                     </span>
                   </div>
                 )}
@@ -1023,9 +1199,9 @@ export default function Home() {
                 >
                   <span
                     className="font-data text-[10px] uppercase tracking-[3px]"
-                    style={{ color: "var(--text-tertiary)" }}
+                    style={{ color: "var(--text-secondary)" }}
                   >
-                    Results
+                    {results.length} {results.length === 1 ? "sound" : "sounds"} found
                   </span>
 
                   <button
@@ -1034,7 +1210,7 @@ export default function Home() {
                     style={{
                       color: (filters.dust > 0 || filters.warmth > 0 || filters.crunch > 0)
                         ? "var(--accent)"
-                        : "var(--text-tertiary)",
+                        : "var(--text-secondary)",
                       background: filtersOpen ? "rgba(212,175,55,0.05)" : "transparent",
                       border: filtersOpen ? "1px solid rgba(212,175,55,0.12)" : "1px solid transparent",
                     }}
@@ -1048,9 +1224,9 @@ export default function Home() {
 
                   <span
                     className="font-data text-[10px] uppercase tracking-[3px]"
-                    style={{ color: "var(--text-tertiary)" }}
+                    style={{ color: "var(--text-secondary)" }}
                   >
-                    Match %
+                    Closeness
                   </span>
                 </div>
               </div>
@@ -1095,14 +1271,8 @@ export default function Home() {
 
               {results.map((result, i) => (
                 <motion.div
-                  key={result.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    delay: i * 0.08,
-                    duration: 0.35,
-                    ease: [0.4, 0, 0.2, 1],
-                  }}
+                  key={result.id || i}
+                  variants={resultCardVariants}
                 >
                   <div
                     className="group/card flex flex-col gap-2 rounded-[14px] relative transition-all duration-200"
@@ -1137,32 +1307,14 @@ export default function Home() {
                     <span className="font-display text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
                       {result.title}
                     </span>
-                    <div
-                      className="flex items-baseline gap-0.5 rounded-[10px] px-3 py-1.5 shrink-0"
-                      style={{
-                        background: result.score >= 90
-                          ? "rgba(212,175,55,0.08)"
-                          : "rgba(255,255,255,0.025)",
-                        border: result.score >= 90
-                          ? "1px solid rgba(212,175,55,0.2)"
-                          : "1px solid rgba(255,255,255,0.05)",
-                      }}
-                    >
-                      <span
-                        className="font-data text-lg font-extrabold tabular-nums leading-none"
-                        style={{ color: result.score >= 90 ? "var(--accent)" : "var(--text-secondary)" }}
-                      >
-                        {result.score}
-                      </span>
-                      <span className="font-data text-[8px]" style={{ color: "var(--text-tertiary)" }}>%</span>
-                    </div>
+                    <MatchArc score={result.score} size={48} />
                   </div>
 
                   {(result.bpm || result.tags || result.year) && (
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {result.bpm && (
-                        <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }}>
-                          {result.bpm} BPM
+                        <span className="font-data text-[10px] font-bold" style={{ color: "var(--accent-dim)" }} title="beats per minute">
+                          {result.bpm} bpm
                         </span>
                       )}
                       {result.tags?.map((tag) => (
@@ -1194,7 +1346,7 @@ export default function Home() {
                       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
                     >
                       <RefreshCw size={11} />
-                      Find Similar
+                      More like this
                     </button>
 
                     <button

@@ -15,6 +15,28 @@ interface ParticleCanvasProps {
   isScanning: boolean;
 }
 
+const initParticles = (width: number, height: number): Particle[] => {
+  const cols = 10;
+  const rows = 9;
+  const cellW = width / cols;
+  const cellH = height / rows;
+  const particles: Particle[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      particles.push({
+        x: cellW * c + Math.random() * cellW,
+        y: cellH * r + Math.random() * cellH,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        radius: 0.4 + Math.random() * 1.4,
+        opacity: 0.06 + Math.random() * 0.18,
+      });
+    }
+  }
+  return particles;
+};
+
 export default function ParticleCanvas({ isScanning }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
@@ -31,32 +53,32 @@ export default function ParticleCanvas({ isScanning }: ParticleCanvasProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
+
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
     window.addEventListener("resize", resize);
 
-    const count = 90;
-    const particles: Particle[] = [];
-    for (let i = 0; i < count; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.7,
-        vy: (Math.random() - 0.5) * 0.7,
-        radius: 0.4 + Math.random() * 1.8,
-        opacity: 0.05 + Math.random() * 0.25,
-      });
-    }
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const particles = initParticles(w, h);
     particlesRef.current = particles;
 
     const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      ctx.clearRect(0, 0, width, height);
       const scanning = isScanningRef.current;
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
+      const cx = width / 2;
+      const cy = height / 2;
 
       for (const p of particles) {
         if (scanning) {
@@ -75,10 +97,10 @@ export default function ParticleCanvas({ isScanning }: ParticleCanvasProps) {
         p.x += p.vx;
         p.y += p.vy;
 
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
+        if (p.x < -20) p.x = width + 20;
+        if (p.x > width + 20) p.x = -20;
+        if (p.y < -20) p.y = height + 20;
+        if (p.y > height + 20) p.y = -20;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -123,7 +145,6 @@ export default function ParticleCanvas({ isScanning }: ParticleCanvasProps) {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 z-0 pointer-events-none"
-      style={{ width: "100vw", height: "100vh" }}
     />
   );
 }

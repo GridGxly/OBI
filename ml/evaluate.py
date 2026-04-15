@@ -10,17 +10,18 @@ Current implementation:
 """
 
 from qdrant_client import QdrantClient
-from embed import embed
+from embed import embed_audio
 
 
-COLLECTION_NAME = "audio_samples"
+COLLECTION_NAME = "beats"
 
 
 def evaluate(query_path: str, top_k: int = 5):
-    # client = QdrantClient(host="localhost", port=6333)
-    client = QdrantClient(path="qdrant_storage")
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    client = QdrantClient(path=os.path.join(current_dir, "qdrant_storage"))
 
-    query_vector = embed(query_path)
+    query_vector = embed_audio(query_path)
 
     results = client.query_points(
         collection_name=COLLECTION_NAME,
