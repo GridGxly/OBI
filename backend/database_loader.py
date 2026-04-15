@@ -1,13 +1,12 @@
 import os
 import sys
 import uuid
-import io
+import subprocess
 
-import librosa
 import soundfile as sf
 import numpy as np
 
-from datasets import load_dataset, Audio
+from datasets import load_dataset
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from dotenv import load_dotenv
@@ -23,32 +22,52 @@ if _ML_PATH not in sys.path:
 from embed import embed_audio  # CLAP — same embedding space as search queries
 
 
-def main():
-    print("Loading HuggingFace Hip-Hop dataset...")
+_YTDLP = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
 
-    hf_token = os.getenv("HF_TOKEN")
+
+def download_clip(ytid: str, start_s: float, end_s: float, out_path: str) -> bool:
+    """Download a trimmed YouTube clip as WAV. Returns True on success."""
+    url = f"https://www.youtube.com/watch?v={ytid}"
+    try:
+        result = subprocess.run(
+            [
+                _YTDLP,
+                url,
+                "--download-sections", f"*{start_s}-{end_s}",
+                "-x", "--audio-format", "wav",
+                "--audio-quality", "0",
+                "-o", out_path,
+                "--force-overwrites",
+            ],
+            timeout=60,
+        )
+        return result.returncode == 0 and os.path.exists(out_path)
+    except Exception as e:
+        print(f"  yt-dlp failed for {ytid}: {e}")
+        return False
+
+
+def main():
+    hf_token  = os.getenv("HF_TOKEN")
     qdrant_url = os.getenv("QDRANT_URL")
     qdrant_key = os.getenv("QDRANT_API_KEY")
 
     if not qdrant_url or not qdrant_key:
         raise RuntimeError("QDRANT_URL and QDRANT_API_KEY must be set in backend/app/.env")
 
+    print("Loading MusicCaps metadata from HuggingFace...")
     try:
-        ds_full = load_dataset(
-            "fdaudens/samples-hip-hop",
-            split="train",
-            token=hf_token,
-        )
-        # decode=False → get raw bytes, avoids torchcodec crash on macOS/Windows
-        ds_full = ds_full.cast_column("audio", Audio(decode=False))
+        ds = load_dataset("google/MusicCaps", split="train", token=hf_token)
     except Exception as e:
-        print(f"Failed to load HF Dataset: {e}")
+        print(f"Failed to load MusicCaps: {e}")
         return
 
-    client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+    print(f"Dataset loaded — {len(ds)} clips")
 
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
     COLLECTION_NAME = "beats"
 
+    # Wipe and recreate collection
     if client.collection_exists(COLLECTION_NAME):
         client.delete_collection(COLLECTION_NAME)
     client.create_collection(
@@ -59,65 +78,65 @@ def main():
         ),
     )
 
-    points = []
+    current_dir  = os.path.dirname(os.path.abspath(__file__))
+    static_dir   = os.path.join(current_dir, "app/static")
+    os.makedirs(static_dir, exist_ok=True)
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    static_output_dir = os.path.join(current_dir, "app/static")
-    os.makedirs(static_output_dir, exist_ok=True)
+    points   = []
+    success  = 0
+    skipped  = 0
 
-    for i, item in enumerate(ds_full):
+    for i, item in enumerate(ds):
+        ytid    = item["ytid"]
+        start_s = item["start_s"]
+        end_s   = item["end_s"]
+        caption = item.get("caption", "")
+
+        filename = f"{ytid}.wav"
+        out_path = os.path.join(static_dir, filename)
+        streaming_url = f"http://localhost:8000/static/{filename}"
+
+        print(f"[{i+1}/{len(ds)}] {ytid} ({start_s}s–{end_s}s)")
+
+        # Skip if already downloaded
+        if not os.path.exists(out_path):
+            ok = download_clip(ytid, start_s, end_s, out_path)
+            if not ok:
+                print(f"  Skipping — download failed")
+                skipped += 1
+                continue
+
         try:
-            audio_data = item.get("audio", {})
-            audio_bytes = audio_data.get("bytes")
-
-            if audio_bytes:
-                y, sr = librosa.load(io.BytesIO(audio_bytes), sr=48000, mono=True)
-            else:
-                y, sr = librosa.load(audio_data.get("path"), sr=48000, mono=True)
-
-            # Clean filename: strip any existing extension, always save as .wav
-            raw_name = audio_data.get("path") or f"hiphop_sample_{i}"
-            base_name = os.path.splitext(os.path.basename(raw_name))[0]
-            filename = f"{base_name}.wav"
-
-            # Write decoded audio to static dir so FastAPI /static can serve it
-            file_destination = os.path.join(static_output_dir, filename)
-            sf.write(file_destination, y, sr)
-
-            streaming_url = f"http://localhost:8000/static/{filename}"
-
-            # Use CLAP embed_audio — same model/space as embed_text and search router
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                sf.write(tmp.name, y, sr)
-                vector = embed_audio(tmp.name).tolist()
-            os.unlink(tmp.name)
-
-            points.append(
-                qmodels.PointStruct(
-                    id=str(uuid.uuid4()),
-                    vector=vector,
-                    payload={
-                        "filename": filename,
-                        "source": "HF/fdaudens",
-                        "path": streaming_url,
-                        "label": item.get("label"),
-                    },
-                )
-            )
-
-            if len(points) >= 50:
-                client.upsert(collection_name=COLLECTION_NAME, points=points)
-                print(f"Upserted {i + 1} vectors into cloud Qdrant...")
-                points = []
-
+            vector = embed_audio(out_path).tolist()
         except Exception as e:
-            print(f"Skipping index {i}: {e}")
+            print(f"  Skipping — embed failed: {e}")
+            skipped += 1
+            continue
+
+        points.append(
+            qmodels.PointStruct(
+                id=str(uuid.uuid4()),
+                vector=vector,
+                payload={
+                    "filename": filename,
+                    "ytid": ytid,
+                    "caption": caption,
+                    "path": streaming_url,
+                    "source": "google/MusicCaps",
+                },
+            )
+        )
+        success += 1
+
+        if len(points) >= 50:
+            client.upsert(collection_name=COLLECTION_NAME, points=points)
+            print(f"  → Upserted batch ({success} total so far)")
+            points = []
 
     if points:
         client.upsert(collection_name=COLLECTION_NAME, points=points)
 
-    print("FINISHED: Uploaded dataset to Qdrant Cloud with CLAP embeddings!")
+    print(f"\nDONE — {success} clips indexed, {skipped} skipped.")
 
 
 if __name__ == "__main__":
