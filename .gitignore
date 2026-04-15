@@ -36,3 +36,6 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
+
+**/ml/qdrant_storage/
+**/backend/app/static/
