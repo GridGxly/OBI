@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 
 interface ScanningOverlayProps {
+  isReady: boolean;
   onComplete: () => void;
 }
 
@@ -13,35 +14,61 @@ const PHASES = [
   "Almost there...",
 ];
 
-const TOTAL_DURATION = 3200;
-const PHASE_DURATION = 800;
+const MIN_DISPLAY_TIME_MS = 3200;
+const PHASE_TRANSITION_MS = 800;
+const FADEOUT_MS = 300;
 
-export default function ScanningOverlay({ onComplete }: ScanningOverlayProps) {
+export default function ScanningOverlay({ isReady, onComplete }: ScanningOverlayProps) {
   const [phase, setPhase] = useState(0);
   const [exiting, setExiting] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [hasMetMinimumTime, setHasMetMinimumTime] = useState(false);
+  
+  const isExitingRef = useRef(false);
 
   useEffect(() => {
-    const intervals: ReturnType<typeof setTimeout>[] = [];
-    for (let i = 1; i < PHASES.length; i++) {
-      intervals.push(setTimeout(() => setPhase(i), i * PHASE_DURATION));
-    }
+    let mounted = true;
+    const timer = setTimeout(() => {
+      if (mounted) setHasMetMinimumTime(true);
+    }, MIN_DISPLAY_TIME_MS);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
-    let exitTimeout: ReturnType<typeof setTimeout> | null = null;
-    timerRef.current = setTimeout(() => {
+  useEffect(() => {
+    if (hasMetMinimumTime && isReady && !isExitingRef.current) {
+      isExitingRef.current = true;
       setExiting(true);
-      exitTimeout = setTimeout(onComplete, 300);
-    }, TOTAL_DURATION);
+      
+      const exitTimeout = setTimeout(() => {
+        onComplete();
+      }, FADEOUT_MS);
+      return () => clearTimeout(exitTimeout);
+    }
+  }, [hasMetMinimumTime, isReady, onComplete]);
+
+  useEffect(() => {
+    let mounted = true;
+    const interval = setInterval(() => {
+      setPhase((p) => {
+        if (!mounted) return p;
+        if (p < PHASES.length - 1) return p + 1;
+        clearInterval(interval);
+        return p;
+      });
+    }, PHASE_TRANSITION_MS);
 
     return () => {
-      intervals.forEach(clearTimeout);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (exitTimeout) clearTimeout(exitTimeout);
+      mounted = false;
+      clearInterval(interval);
     };
-  }, [onComplete]);
+  }, []);
 
   return (
     <div
+      role="status"
+      aria-label="Searching for matching sounds"
       className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
       style={{
         background: "radial-gradient(ellipse at center, rgba(20,16,8,0.97), rgba(5,5,5,0.99) 70%)",

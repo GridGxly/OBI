@@ -39,6 +39,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [query, setQuery] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isScanReady, setIsScanReady] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
   const [isFocused, setIsFocused] = useState(false);
@@ -106,6 +107,7 @@ export default function Home() {
     };
     setSearchSource(newSource);
 
+    setIsScanReady(false);
     setIsScanning(true);
     setResults([]);
 
@@ -151,6 +153,8 @@ export default function Home() {
         { id: `s2-${Date.now()}`, title: "Deep Cut - Rare Groove Find", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3", bpm: 98, tags: ["Rare", "Groove"], year: 1969 },
         { id: `s3-${Date.now()}`, title: "Underground Sample Pack B-Side", score: 79, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", bpm: 88, tags: ["Underground", "B-Side"], year: 1977 },
       ];
+    } finally {
+      setIsScanReady(true);
     }
   };
 
@@ -365,6 +369,7 @@ export default function Home() {
     });
     setResultHistory([]);
 
+    setIsScanReady(false);
     setIsScanning(true);
     setError("");
     setResults([]);
@@ -418,6 +423,8 @@ export default function Home() {
         { id: "dummy-2", title: "Atmospheric Synth Pad", score: 87, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", tags: ["Synth", "Ambient", "Dark"], year: 2021 },
         { id: "dummy-3", title: "Funky Bassline Groover", score: 76, url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", bpm: 110, tags: ["Bass", "Funk", "Groove"] }
       ];
+    } finally {
+      setIsScanReady(true);
     }
   };
 
@@ -531,7 +538,7 @@ export default function Home() {
       <ParticleCanvas isScanning={isScanning} />
 
       <AnimatePresence>
-        {isScanning && <ScanningOverlay onComplete={handleScanComplete} />}
+        {isScanning && <ScanningOverlay isReady={isScanReady} onComplete={handleScanComplete} />}
       </AnimatePresence>
 
       <AnimatePresence>
