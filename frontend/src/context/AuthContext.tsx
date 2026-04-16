@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User, SavedSound } from "@/types/auth";
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 interface AuthContextType {
   user: User | null;
