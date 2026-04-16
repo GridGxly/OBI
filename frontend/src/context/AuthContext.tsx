@@ -3,7 +3,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User, SavedSound } from "@/types/auth";
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_BACKEND_URL;
+console.log("[AuthContext] API base URL:", API);
 
 interface AuthContextType {
   user: User | null;
@@ -94,12 +95,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
+      console.log("[login] POSTing to:", `${API}/auth/login`);
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) throw new Error("Backend rejected login");
+      console.log("[login] Response status:", res.status);
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error("[login] Error body:", errBody);
+        throw new Error(`Backend rejected login (${res.status}): ${errBody}`);
+      }
       const data = await res.json();
       localStorage.setItem("obi_token", data.access_token);
 
