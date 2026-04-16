@@ -1,7 +1,9 @@
 import os
+import traceback
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from routers import embed, search, auth, upload, users
 from core.database import init_db
 
@@ -17,9 +19,17 @@ app.add_middleware(
 
 @app.middleware("http")
 async def no_cache_middleware(request: Request, call_next):
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        traceback.print_exc()
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal server error: {str(e)}"},
+        )
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     response.headers["Pragma"] = "no-cache"
+    response.headers["Access-Control-Allow-Origin"] = "*"
     return response
 
 # Serve audio files written by database_loader.py at /static/<filename>
