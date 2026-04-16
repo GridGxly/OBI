@@ -11,6 +11,7 @@ from datasets import load_dataset, Audio
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 # Load .env from this file's directory (OBI/backend/app/.env)
 load_dotenv(os.path.join(os.path.dirname(__file__), "app/.env"))
@@ -22,6 +23,33 @@ if _ML_PATH not in sys.path:
 
 from embed import embed_audio  # CLAP — same embedding space as search queries
 
+SUPABASE_BUCKET = "audio-samples"
+
+
+def get_supabase_client() -> Client:
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in backend/app/.env")
+    return create_client(url, key)
+
+
+def upload_to_supabase(supabase: Client, wav_bytes: bytes, filename: str) -> str:
+    """Upload WAV bytes to Supabase Storage and return the public URL."""
+    try:
+        # upsert=True so re-runs don't fail on duplicate filenames
+        supabase.storage.from_(SUPABASE_BUCKET).upload(
+            path=filename,
+            file=wav_bytes,
+            file_options={"content-type": "audio/wav", "upsert": "true"},
+        )
+    except Exception as e:
+        # If already exists and upsert didn't work, just get the URL
+        print(f"  Upload warning for {filename}: {e}")
+
+    public_url = supabase.storage.from_(SUPABASE_BUCKET).get_public_url(filename)
+    return public_url
+
 
 def main():
     print("Loading HuggingFace Hip-Hop dataset...")
@@ -32,6 +60,20 @@ def main():
 
     if not qdrant_url or not qdrant_key:
         raise RuntimeError("QDRANT_URL and QDRANT_API_KEY must be set in backend/app/.env")
+
+    supabase = get_supabase_client()
+
+    # Ensure the bucket exists and is public
+    try:
+        buckets = supabase.storage.list_buckets()
+        bucket_names = [b.name for b in buckets]
+        if SUPABASE_BUCKET not in bucket_names:
+            supabase.storage.create_bucket(SUPABASE_BUCKET, options={"public": True})
+            print(f"Created Supabase bucket: {SUPABASE_BUCKET}")
+        else:
+            print(f"Using existing Supabase bucket: {SUPABASE_BUCKET}")
+    except Exception as e:
+        print(f"Bucket setup warning: {e}")
 
     try:
         ds_full = load_dataset(
@@ -61,10 +103,6 @@ def main():
 
     points = []
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    static_output_dir = os.path.join(current_dir, "app/static")
-    os.makedirs(static_output_dir, exist_ok=True)
-
     for i, item in enumerate(ds_full):
         try:
             audio_data = item.get("audio", {})
@@ -80,16 +118,20 @@ def main():
             base_name = os.path.splitext(os.path.basename(raw_name))[0]
             filename = f"{base_name}.wav"
 
-            # Write decoded audio to static dir so FastAPI /static can serve it
-            file_destination = os.path.join(static_output_dir, filename)
-            sf.write(file_destination, y, sr)
+            # Encode to WAV bytes in memory
+            wav_buffer = io.BytesIO()
+            sf.write(wav_buffer, y, sr, format="WAV")
+            wav_bytes_out = wav_buffer.getvalue()
 
-            streaming_url = f"http://localhost:8000/static/{filename}"
+            # Upload to Supabase Storage and get public URL
+            streaming_url = upload_to_supabase(supabase, wav_bytes_out, filename)
+            print(f"[{i}] Uploaded {filename} → {streaming_url}")
 
             # Use CLAP embed_audio — same model/space as embed_text and search router
             import tempfile
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                sf.write(tmp.name, y, sr)
+                tmp.write(wav_bytes_out)
+                tmp.flush()
                 vector = embed_audio(tmp.name).tolist()
             os.unlink(tmp.name)
 
@@ -117,7 +159,7 @@ def main():
     if points:
         client.upsert(collection_name=COLLECTION_NAME, points=points)
 
-    print("FINISHED: Uploaded dataset to Qdrant Cloud with CLAP embeddings!")
+    print("FINISHED: Uploaded dataset to Supabase Storage + Qdrant Cloud with CLAP embeddings!")
 
 
 if __name__ == "__main__":

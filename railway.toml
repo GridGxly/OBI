@@ -1,7 +1,8 @@
 [build]
 builder = "nixpacks"
+buildCommand = "cd backend && /opt/venv/bin/pip install --upgrade pip && /opt/venv/bin/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu && /opt/venv/bin/pip install -r app/requirements.txt"
 
 [deploy]
-startCommand = "cd backend/app && uvicorn main:app --host 0.0.0.0 --port $PORT"
+startCommand = "cd backend/app && /opt/venv/bin/uvicorn main:app --host 0.0.0.0 --port $PORT"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3

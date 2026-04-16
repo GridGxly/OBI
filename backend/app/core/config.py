@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -7,12 +8,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
-    QDRANT_API_KEY: str
-    QDRANT_URL: str
-    HF_TOKEN: str
+    QDRANT_API_KEY: str = ""
+    QDRANT_URL: str = ""
+    HF_TOKEN: Optional[str] = None
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 settings = Settings()

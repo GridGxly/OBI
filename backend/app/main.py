@@ -22,7 +22,14 @@ app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 @app.on_event("startup")
 async def startup():
-    await init_db()
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
 
 app.include_router(embed.router, prefix="/embed", tags=["embed"])
 app.include_router(search.router, prefix="/search", tags=["search"])

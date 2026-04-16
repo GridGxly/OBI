@@ -27,6 +27,9 @@ numpy
 datasets
 pandas
 
+# Storage
+supabase
+
 # Utilities
 python-dotenv
 

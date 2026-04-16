@@ -10,6 +10,12 @@ if "?ssl=" in _db_url:
 elif "&ssl=" in _db_url:
     _db_url = _db_url.replace("&ssl=require", "").replace("&ssl=true", "")
 
+# Ensure the URL uses the asyncpg driver — Railway may provide plain postgresql://
+if _db_url.startswith("postgresql://"):
+    _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
 engine = create_async_engine(
     _db_url,
     echo=False,
